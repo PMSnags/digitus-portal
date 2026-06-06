@@ -18,6 +18,22 @@
   --text:#111;--text2:#6b6b6b;--text3:#aaa;
   --r:6px;--rl:10px;
 }
+body.dark-mode{
+  --bg:#0f0f0f;--surf:#1a1a1a;--surf2:#222;
+  --border:#2a2a2a;--border2:#333;
+  --text:#e5e5e5;--text2:#888;--text3:#555;
+  --pri-lt:#2a0509;--amber-lt:#1a1200;--blue-lt:#0a1628;--green-lt:#061a10;
+}
+body.dark-mode .topbar{background:#111;border-color:#222}
+body.dark-mode .auth-right{background:#1a1a1a}
+body.dark-mode .auth-form h2,body.dark-mode .auth-form p{color:#e5e5e5}
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#222;color:#e5e5e5;border-color:#333}
+body.dark-mode .btn{background:#222;color:#e5e5e5;border-color:#333}
+body.dark-mode .btn:hover{background:#2a2a2a}
+body.dark-mode .btn-signin{background:#e5e5e5;color:#111}
+body.dark-mode tr:hover td{background:#222}
+body.dark-mode th{background:#1a1a1a;color:#666}
+body.dark-mode .ch{background:#1f1f1f}
 #app.sidebar-mode{flex-direction:row}
 #app.sidebar-mode .nav{display:none}
 .sb-nav{width:172px;background:var(--dark);flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto}
@@ -223,6 +239,7 @@ tr:hover td{background:#fafafa}
     <div class="tb-right">
       <span id="upill" class="tb-user"></span>
       <span id="urole" class="tb-role"></span>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="background:transparent;border:1px solid #333;color:#888;padding:5px 10px;font-size:12px;border-radius:var(--r);cursor:pointer">&#9788;</button>
     </div>
   </div>
   <div id="app-body" style="display:flex;flex:1;overflow:hidden;min-height:0">
@@ -382,6 +399,7 @@ async function rDash(){
 
   const[tot,opn,pnd,att,cls,
     regDXB,regNE,regAUH,regAAN,regWR,
+    caRes,cbRes,ccRes,
     recRes,urgRes,agingRes,repRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
@@ -393,6 +411,9 @@ async function rDash(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AUH'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AAN'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','WR'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
     sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by').order('created_at',{ascending:false}).limit(10),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
@@ -400,6 +421,7 @@ async function rDash(){
   ]);
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
+  const cA=caRes.count||0,cB=cbRes.count||0,cC=ccRes.count||0;
   const rc={DXB:regDXB.count||0,NE:regNE.count||0,AUH:regAUH.count||0,AAN:regAAN.count||0,WR:regWR.count||0};
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,8);
   const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,5);
@@ -479,10 +501,10 @@ async function rDash(){
       <div class="dpanel-body" style="padding:12px">
         ${['DXB','NE','AUH','AAN','WR'].map(r=>regBar(r)).join('')}
         <div style="border-top:0.5px solid var(--border);margin-top:8px;padding-top:10px">
-          ${[['Class A','#EEEDFE','#3C3489'],['Class B','#E6F1FB','#0C447C'],['Class C','#F1EFE8','#444441']].map(([cls,bg,col])=>`
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          ${[['Class A',cA,'#EEEDFE','#3C3489'],['Class B',cB,'#E6F1FB','#0C447C'],['Class C',cC,'#F1EFE8','#444441']].map(([cls,cnt,bg,col])=>`
+          <div onclick="S.tf.sclass='${cls}';S.tf.q='';S.tf.status='';S.tf.region='';S.tpage=1;renderTab('tickets')" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;cursor:pointer;padding:3px 4px;border-radius:4px" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'">
             <span style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;background:${bg};color:${col}">${cls}</span>
-            <span style="font-size:11px;color:var(--text2)">click stat cards to filter</span>
+            <span style="font-size:11px;font-weight:500;color:var(--text2)">${cnt.toLocaleString()}</span>
           </div>`).join('')}
         </div>
       </div>
@@ -634,6 +656,7 @@ async function rKPI(){
   ]);
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
+  const cA=caRes.count||0,cB=cbRes.count||0,cC=ccRes.count||0;
   const resRate=T>0?Math.round(C/T*100):0;
   const openRate=T>0?Math.round((O+P)/T*100):0;
 
@@ -1646,6 +1669,25 @@ async function saveUsr(id){
   document.getElementById('urole-'+id).innerHTML='<span class="rbdg" style="'+( roleColors[newRole]||roleColors.noc)+'">'+newRole+'</span>';
   cancelUsr(id,newName,newRole);
 }
+
+
+// DARK MODE TOGGLE
+function toggleTheme(){
+  const isDark=document.body.classList.toggle('dark-mode');
+  localStorage.setItem('theme',isDark?'dark':'light');
+  document.getElementById('theme-toggle').textContent=isDark?'☀':'☾';
+}
+(function(){
+  try{
+    if(localStorage.getItem('theme')==='dark'){
+      document.body.classList.add('dark-mode');
+      document.addEventListener('DOMContentLoaded',()=>{
+        const btn=document.getElementById('theme-toggle');
+        if(btn)btn.textContent='☀';
+      });
+    }
+  }catch(e){}
+})();
 
 // HELPERS
 function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
