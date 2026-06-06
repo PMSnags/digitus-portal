@@ -263,16 +263,15 @@ async function doLogout(){await sb.auth.signOut();S={...S,user:null,role:'guest'
   document.getElementById('app').style.display='none';document.getElementById('auth').style.display='flex';}
 async function loadProfile(u){
   S.user=u;
+  S.name=u.email;S.role='guest';
   try{
-    const{data}=await sb.from('users').select('*').eq('id',u.id).maybeSingle();
-    if(data&&data.role){S.role=data.role;S.name=data.display_name;}
-    else{
-      await new Promise(r=>setTimeout(r,600));
-      const{data:d2}=await sb.from('users').select('*').eq('id',u.id).maybeSingle();
-      if(d2&&d2.role){S.role=d2.role;S.name=d2.display_name;}
-      else{S.role='guest';S.name=u.email;}
+    // Try up to 3 times with delay — token propagation can be slow
+    for(let i=0;i<3;i++){
+      const{data,error}=await sb.from('users').select('id,display_name,role').eq('id',u.id).maybeSingle();
+      if(data&&data.role){S.role=data.role;S.name=data.display_name;return;}
+      if(i<2)await new Promise(r=>setTimeout(r,800));
     }
-  }catch(e){S.role='guest';S.name=u.email;}
+  }catch(e){console.warn('Profile load error:',e);}
 }
 function showAErr(m){const e=document.getElementById('aerr');e.textContent=m;e.style.display='block';}
 
@@ -293,6 +292,7 @@ async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is
 function tabs(){
   const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'},{id:'kpi',l:'KPI Report'}];
   if(S.role!=='guest'){t.push({id:'new_ticket',l:'New Ticket'});t.push({id:'cleaner',l:'Site ID Cleaner'});}
+  if(S.role==='noc'||S.role==='admin'){t.push({id:'bulk',l:'Bulk Update'});}
   if(S.role==='admin'||S.role==='management'){t.push({id:'mstaff',l:'Manage Staff & Users'});t.push({id:'mlkp',l:'Manage Dropdowns'});}
   return t;
 }
@@ -301,7 +301,7 @@ function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>
 function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
-  else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
+  else if(t==='bulk')rBulk();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
 
 // DASHBOARD
 async function rDash(){
@@ -975,6 +975,134 @@ async function dlTix(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
   toast('Downloaded '+data.length.toLocaleString()+' rows');
+}
+
+
+// BULK UPDATE
+function rBulk(){
+  const mc=document.getElementById('mc');
+  mc.innerHTML=`
+  <div style="max-width:900px">
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Bulk update tickets</div></div>
+      <div class="cb">
+        <div class="info-box" style="margin-bottom:14px">
+          Paste TT numbers (one per line, e.g. IM8333745) then choose what to update. Only filled fields will be changed &mdash; blank fields are ignored.
+        </div>
+        <div class="fg">
+          <div class="ff full">
+            <label>TT Numbers *</label>
+            <textarea id="bk-tts" style="min-height:100px;font-family:monospace;font-size:12px" placeholder="IM8333745&#10;IM8333673&#10;IM8333702&#10;...one per line"></textarea>
+          </div>
+          <div class="ff">
+            <label>Update Status</label>
+            <select id="bk-status">
+              <option value="">— no change —</option>
+              ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ff">
+            <label>Update BO Team</label>
+            <select id="bk-bo">
+              <option value="">— no change —</option>
+              ${S.staff.filter(s=>s.role_type==='bo_team').map(s=>`<option>${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ff">
+            <label>Update Tech Name</label>
+            <select id="bk-tech">
+              <option value="">— no change —</option>
+              ${S.staff.filter(s=>s.role_type==='tech').map(s=>`<option>${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ff">
+            <label>Update Date Attended</label>
+            <input type="date" id="bk-attended">
+          </div>
+          <div class="ff full">
+            <label>Update Closure Remarks</label>
+            <textarea id="bk-remarks" placeholder="Closure remarks to apply to all selected tickets (leave blank to skip)"></textarea>
+          </div>
+          <div class="ff full">
+            <label>Update Resolution</label>
+            <textarea id="bk-resolution" placeholder="Resolution text to apply to all selected tickets (leave blank to skip)"></textarea>
+          </div>
+        </div>
+        <div class="fa">
+          <button class="btn bpri" onclick="runBulk()">Apply to all</button>
+          <button class="btn" onclick="document.getElementById('bk-tts').value='';document.getElementById('bk-result').innerHTML=''">Clear</button>
+        </div>
+      </div>
+    </div>
+    <div id="bk-result"></div>
+  </div>`;
+}
+
+async function runBulk(){
+  const raw=document.getElementById('bk-tts').value||'';
+  const tts=raw.split(/[
+,]+/).map(s=>s.trim()).filter(Boolean);
+  if(!tts.length){toast('Paste at least one TT number',1);return;}
+
+  // Build update payload — only include fields that have values
+  const payload={updated_by:S.name};
+  const st=document.getElementById('bk-status').value;
+  const bo=document.getElementById('bk-bo').value;
+  const tc=document.getElementById('bk-tech').value;
+  const at=document.getElementById('bk-attended').value;
+  const rm=document.getElementById('bk-remarks').value.trim();
+  const rs=document.getElementById('bk-resolution').value.trim();
+  if(st)payload.status=st;
+  if(bo)payload.bo_team=bo;
+  if(tc)payload.tech_name=tc;
+  if(at)payload.tt_date_attended=at;
+  if(rm)payload.closure_remarks=rm;
+  if(rs)payload.resolution=rs;
+
+  if(Object.keys(payload).length===1){toast('Select at least one field to update',1);return;}
+
+  const res=document.getElementById('bk-result');
+  res.innerHTML='<div class="loading">Updating '+tts.length+' tickets…</div>';
+
+  // Process in batches of 50
+  const BATCH=50;let updated=0,notFound=[];
+  for(let i=0;i<tts.length;i+=BATCH){
+    const batch=tts.slice(i,i+BATCH);
+    const{data,error}=await sb.from('tickets').update(payload).in('tt_number',batch).select('tt_number');
+    if(error){toast('Error: '+error.message,1);res.innerHTML='';return;}
+    updated+=(data||[]).length;
+    const found=new Set((data||[]).map(r=>r.tt_number.trim()));
+    batch.forEach(t=>{if(!found.has(t))notFound.push(t);});
+  }
+
+  // Show results
+  const fields=[];
+  if(st)fields.push('Status: '+st);
+  if(bo)fields.push('BO Team: '+bo);
+  if(tc)fields.push('Tech: '+tc);
+  if(at)fields.push('Date attended: '+at);
+  if(rm)fields.push('Closure remarks updated');
+  if(rs)fields.push('Resolution updated');
+
+  res.innerHTML=`
+  <div class="card">
+    <div class="ch"><div class="ct">Update results</div></div>
+    <div class="cb">
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="mc" style="flex:1;min-width:120px"><div class="ml">Requested</div><div class="mv" style="color:var(--blue)">${tts.length}</div></div>
+        <div class="mc" style="flex:1;min-width:120px"><div class="ml">Updated</div><div class="mv" style="color:var(--green)">${updated}</div></div>
+        <div class="mc" style="flex:1;min-width:120px"><div class="ml">Not found</div><div class="mv" style="color:${notFound.length?'var(--pri)':'var(--text3)'}">${notFound.length}</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:${notFound.length?'12px':'0'}">
+        <strong>Fields updated:</strong> ${fields.join(' &nbsp;&middot;&nbsp; ')}
+      </div>
+      ${notFound.length?`<div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:500;color:var(--pri);margin-bottom:6px">TT numbers not found in database (${notFound.length}):</div>
+        <div style="font-family:monospace;font-size:12px;color:var(--text2);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.8">${notFound.join(', ')}</div>
+      </div>`:''}
+    </div>
+  </div>`;
+  toast('Updated '+updated+' tickets');
 }
 
 // HELPERS
