@@ -463,9 +463,11 @@ async function rDash(){
 
   mc.innerHTML=`
   <style>
-    .dash-shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:auto 1fr auto;gap:10px;height:calc(100vh - 140px)}
+    .dash-shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:auto 1fr auto;gap:10px;min-height:calc(100vh - 148px)}
     .dash-stat-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-    .dash-right-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+    .dash-right-col{display:flex;flex-direction:column;gap:10px;min-height:0}
+    .dash-bottom-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;min-height:220px}
+    .dpanel-scroll{overflow-y:auto;flex:1}
     .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:background .12s}
     .dstat:hover{background:var(--surf2)}
     .dstat-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
@@ -512,7 +514,7 @@ async function rDash(){
     </div>
 
     <div class="dash-right-col">
-<div class="dpanel" style="flex:2;min-height:0">
+<div class="dpanel" style="flex:1;min-height:0;overflow:hidden">
       <div class="dpanel-head">
         <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent &amp; aging</div>
         <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">KPI &rarr;</button>
@@ -531,19 +533,10 @@ async function rDash(){
       </div>
     </div>
 
-    <div class="dpanel" style="flex:1;min-height:0">
-      <div class="dpanel-head">
-        <div class="dpanel-title"><span class="live-dot"></span>Live ticket feed</div>
-        <span style="font-size:10px;color:var(--text2)">newest first</span>
-      </div>
-      <div class="dpanel-body">
-        ${rec.map(t=>ticketCard(t,false)).join('')}
-      </div>
-    </div>
     </div>
 
-
-    <div class="dpanel" style="flex-direction:row;align-items:stretch;grid-column:1/-1">
+    <div class="dash-bottom-row">
+    <div class="dpanel" style="flex-direction:column;overflow:hidden">
       <div style="flex:1;padding:12px;border-right:0.5px solid var(--border)">
         <div style="font-size:11px;font-weight:500;margin-bottom:10px">Resolution rate</div>
         <div style="font-size:32px;font-weight:500;color:${C>0?'var(--green)':'var(--pri)'};letter-spacing:-.5px;margin-bottom:6px">${T>0?Math.round(C/T*100):0}%</div>
@@ -568,6 +561,16 @@ async function rDash(){
           <span style="font-size:10px;font-weight:500;color:var(--pri);width:24px;text-align:right">${cnt}x</span>
         </div>`).join(''):'<div style="font-size:12px;color:var(--text2)">No repeated sites</div>'}
       </div>
+    </div>
+    <div class="dpanel" style="overflow:hidden">
+      <div class="dpanel-head">
+        <div class="dpanel-title"><span class="live-dot"></span>Live ticket feed</div>
+        <span style="font-size:10px;color:var(--text2)">newest first</span>
+      </div>
+      <div class="dpanel-scroll">
+        ${rec.map(t=>ticketCard(t,false)).join('')}
+      </div>
+    </div>
     </div>
 
   </div>`;
@@ -717,56 +720,45 @@ async function rKPI(){
   const maxAge=agingTix.length?agingTix[0].days:1;
 
   mc.innerHTML=`
-  <!-- 6-Month SVG Line Chart -->
-  <div class="card" style="margin-bottom:12px;background:var(--dark);border-color:var(--dark3)">
-    <div class="ch" style="background:#1a1a1a;border-color:#222">
-      <div class="ct" style="color:#fff;font-size:13px;font-weight:500">Monthly resolution trend &nbsp;<span style="font-size:11px;color:#666;font-weight:400">${monthData[0].label} &ndash; ${monthData[5].label}</span></div>
-      <div style="display:flex;gap:14px">
-        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa"><div style="width:16px;height:2px;background:#C8102E;border-radius:1px"></div>Total tickets</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa"><div style="width:16px;height:2px;background:#059669;border-radius:1px"></div>Closed</div>
-      </div>
+  <!-- 6-Month Bar Chart -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch">
+      <div class="ct">6-month ticket &amp; resolution trend</div>
+      <span style="font-size:11px;color:var(--text2)">${monthData[0].label} &rarr; ${monthData[5].label}</span>
     </div>
-    <div style="padding:16px 20px 12px;background:var(--dark)">
-      ${(()=>{
-        const W=580,H=160,PAD_L=44,PAD_R=16,PAD_T=12,PAD_B=28;
-        const gW=W-PAD_L-PAD_R,gH=H-PAD_T-PAD_B;
-        const maxV=Math.max(...monthData.map(m=>m.total),1);
-        const xPos=(i)=>PAD_L+i*(gW/(monthData.length-1));
-        const yPos=(v)=>PAD_T+gH-(v/maxV*gH);
-        const tPoints=monthData.map((m,i)=>`${xPos(i)},${yPos(m.total)}`).join(' ');
-        const cPoints=monthData.map((m,i)=>`${xPos(i)},${yPos(m.closed)}`).join(' ');
-        const tArea=`${PAD_L},${PAD_T+gH} `+monthData.map((m,i)=>`${xPos(i)},${yPos(m.total)}`).join(' ')+` ${xPos(monthData.length-1)},${PAD_T+gH}`;
-        const cArea=`${PAD_L},${PAD_T+gH} `+monthData.map((m,i)=>`${xPos(i)},${yPos(m.closed)}`).join(' ')+` ${xPos(monthData.length-1)},${PAD_T+gH}`;
-        const yTicks=[0,25,50,75,100].map(p=>Math.round(maxV*p/100));
-        return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
-          <defs>
-            <linearGradient id="tGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#C8102E" stop-opacity="0.15"/>
-              <stop offset="100%" stop-color="#C8102E" stop-opacity="0"/>
-            </linearGradient>
-            <linearGradient id="cGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#059669" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="#059669" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          ${yTicks.map(v=>{
-            const y=yPos(v);
-            return`<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#333" stroke-width="1"/>
-            <text x="${PAD_L-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#888">${v>=1000?Math.round(v/1000)+'k':v}</text>`;
-          }).join('')}
-          <polygon points="${tArea}" fill="url(#tGrad)"/>
-          <polygon points="${cArea}" fill="url(#cGrad)"/>
-          <polyline points="${tPoints}" fill="none" stroke="#C8102E" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-          <polyline points="${cPoints}" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-          ${monthData.map((m,i)=>`
-            <circle cx="${xPos(i)}" cy="${yPos(m.total)}" r="3" fill="#C8102E"/>
-            <circle cx="${xPos(i)}" cy="${yPos(m.closed)}" r="3" fill="#059669"/>
-            <text x="${xPos(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#999">${m.label}</text>
-            <text x="${xPos(i)}" y="${yPos(m.total)-7}" text-anchor="middle" font-size="8" fill="#bbb">${m.total>=1000?(m.total/1000).toFixed(1)+'k':m.total}</text>
-          `).join('')}
-          <text x="${xPos(monthData.findIndex(m=>m.rate===Math.max(...monthData.map(x=>x.rate))))}" y="${yPos(monthData.find(m=>m.rate===Math.max(...monthData.map(x=>x.rate))).closed)-16}" text-anchor="middle" font-size="8" fill="#4ade80">Best: ${Math.max(...monthData.map(m=>m.rate))}%</text>
-        </svg>`;
-      })()}
+    <div class="cb" style="padding:16px 16px 8px">
+      <div style="display:flex;align-items:flex-end;gap:8px;height:140px;margin-bottom:6px">
+        ${monthData.map(m=>{
+          const tPct=Math.round(m.total/maxMonthTotal*100);
+          const cPct=m.total>0?Math.round(m.closed/m.total*100):0;
+          const barH=Math.max(tPct,4);
+          return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">
+            <div style="font-size:10px;color:var(--text2);font-weight:500;white-space:nowrap">${m.rate}%</div>
+            <div style="width:100%;display:flex;flex-direction:column;height:${barH}%;border-radius:4px 4px 0 0;overflow:hidden;min-height:4px;position:relative" title="Total: ${m.total.toLocaleString()}">
+              <div style="flex:1;background:var(--surf2)"></div>
+              <div style="height:${cPct}%;background:var(--green);min-height:${m.closed>0?'2':'0'}px" title="Closed: ${m.closed.toLocaleString()}"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        ${monthData.map(m=>`<div style="flex:1;text-align:center;font-size:10px;color:var(--text2)">${m.label}</div>`).join('')}
+      </div>
+      <div style="display:flex;gap:16px;padding-top:10px;border-top:0.5px solid var(--border);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)">
+          <div style="width:12px;height:12px;background:var(--surf2);border-radius:2px;border:0.5px solid var(--border)"></div> Total (bar height)
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)">
+          <div style="width:12px;height:12px;background:var(--green);border-radius:2px"></div> Closed (bottom fill)
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)">
+          <strong>%</strong> Resolution rate
+        </div>
+        <div style="margin-left:auto;font-size:11px;color:var(--text2)">
+          Peak: <strong>${Math.max(...monthData.map(m=>m.total)).toLocaleString()}</strong> tickets &nbsp;&middot;&nbsp;
+          Best resolution: <strong style="color:var(--green)">${Math.max(...monthData.map(m=>m.rate))}%</strong>
+        </div>
+      </div>
     </div>
   </div>
 
