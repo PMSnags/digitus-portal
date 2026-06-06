@@ -422,8 +422,8 @@ async function rDash(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
     sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').order('created_at',{ascending:false}).limit(10),
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
-    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tt_date_attended,remarks,resolution,closure_remarks,battery_status,updated_by,site_type').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
+    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks,resolution,closure_remarks,battery_status,updated_by,site_type,site_id_raw,tt_date_attended').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
+    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tt_date_attended,remarks,resolution,closure_remarks,battery_status,updated_by,site_type').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(50),
     sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
   ]);
 
@@ -574,7 +574,7 @@ async function rDash(){
     </div>
 
     <!-- Row 4: Live feed + Aging side by side -->
-    <div class="dash-row" style="grid-template-columns:1fr 1fr;flex:1;min-height:220px">
+    <div class="dash-row" style="grid-template-columns:1fr 1fr;flex:1;min-height:300px;flex:1">
 
       <!-- Live ticket feed -->
       <div class="dpanel">
@@ -607,6 +607,7 @@ async function rDash(){
               if(d>14)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FAEEDA;color:#854F0B;flex-shrink:0">${d}d</span>`;
               return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#E6F1FB;color:#185FA5;flex-shrink:0">${d}d</span>`;
             })()}
+            ${t.id&&(S.role==='noc'||S.role==='management'||S.role==='admin')?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0;margin-left:4px">Edit</button>`:''}
           </div>`).join('')}
         </div>
       </div>
