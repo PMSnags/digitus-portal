@@ -405,7 +405,7 @@ async function rKPI(){
     caTotal,caOpen,caClosed,
     cbTotal,cbOpen,cbClosed,
     ccTotal,ccOpen,ccClosed,
-    urgRes,repRes,ageRes]=await Promise.all([
+    repRes,ageRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
@@ -423,9 +423,7 @@ async function rKPI(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
-    // Urgent: Class A+B open/pending — fetch rows for display
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
-      .in('site_class',['Class A','Class B']).in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
+
     // Repeated sites — top 15 by count using rpc or fetch all canonicals
     sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
     // Aging: oldest open tickets
@@ -437,8 +435,6 @@ async function rKPI(){
   const resRate=T>0?Math.round(C/T*100):0;
   const openRate=T>0?Math.round((O+P)/T*100):0;
 
-  // Urgent tickets (Class A/B + AC/Power issues)
-  const urgTix=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class));
 
   // Class breakdown — from server-side counts
   const classCounts={
@@ -466,39 +462,13 @@ async function rKPI(){
   <div class="mrow">
     <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
     <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
-    <div class="mc"><div class="ml">Urgent (A/B + AC/Power)</div><div class="mv" style="color:var(--pri)">${urgTix.length}</div><div class="ms">Need immediate action</div></div>
+
     <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
     <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
   </div>
 
-  <!-- Urgent tickets -->
-  ${urgTix.length>0?`
-  <div class="kpi-urgent">
-    <div class="ch" style="background:transparent;border-color:#5a0015;margin:-14px -16px 12px">
-      <div class="ct" style="color:#ff6b8a">&#9888; Urgent — Class A/B with AC or power issue (${urgTix.length})</div>
-    </div>
-    <div class="tw"><table><thead><tr>
-      <th style="width:110px;color:#aaa;cursor:default">TT Number</th>
-      <th style="width:60px;color:#aaa;cursor:default">Region</th>
-      <th style="width:90px;color:#aaa;cursor:default">Date</th>
-      <th style="width:90px;color:#aaa;cursor:default">Site</th>
-      <th style="width:70px;color:#aaa;cursor:default">Class</th>
-      <th style="color:#aaa;cursor:default">Issue</th>
-      <th style="width:80px;color:#aaa;cursor:default">Status</th>
-    </tr></thead><tbody>
-      ${urgTix.slice(0,20).map(t=>`<tr style="background:transparent">
-        <td style="font-family:monospace;font-size:12px;color:#fff">${t.tt_number||'—'}</td>
-        <td><span class="badge bur">${t.region}</span></td>
-        <td style="color:#aaa;font-size:12px">${t.ticket_date||'—'}</td>
-        <td style="font-weight:500;color:#fff">${t.site_id_canonical||'—'}</td>
-        <td>${cbadge(t.site_class)}</td>
-        <td style="font-size:12px;color:#ddd" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-        <td>${sbadge(t.status)}</td>
-      </tr>`).join('')}
-    </tbody></table></div>
-  </div>`:''}
 
-  <div class="kpi-grid">
+    <div class="kpi-grid">
     <!-- Site class summary -->
     <div class="card"><div class="ch"><div class="ct">Ticket summary by site class</div></div><div class="cb">
       ${Object.entries(classCounts).map(([cls,d])=>{
@@ -808,9 +778,9 @@ async function runCl(){
 async function rStaff(){
   const[stRes,usRes]=await Promise.all([
     sb.from('staff').select('*').order('name'),
-    sb.from('users').select('id,display_name,role,is_active').order('display_name'),
+    sb.rpc('get_all_users'),
   ]);
-  const st=stRes.data||[],us=usRes.data||[];
+  const st=stRes.data||[],us=usRes.data||usRes||[];
   const mc=document.getElementById('mc');
   mc.innerHTML=`
   <div style="max-width:760px">
