@@ -117,7 +117,7 @@ textarea{resize:vertical;min-height:68px;line-height:1.55}
 .ms{font-size:11px;color:var(--text3);margin-top:3px}
 
 /* CARD */
-.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:12px}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);margin-bottom:12px}
 .ch{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .ct{font-size:13px;font-weight:500;letter-spacing:-.1px}
 .cb{padding:16px}
@@ -459,17 +459,20 @@ async function rDash(){
     return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#E6F1FB;color:#185FA5">${d}d</span>`;
   };
 
-  const ticketCard=(t,showUrgTag)=>`
-    <div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})" style="padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'border-left:3px solid var(--pri);padding-left:9px;background:#fff5f5':''}" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'#fff5f5':'transparent'}'">
-      <div style="display:flex;align-items:center;gap:7px">
-        <span style="font-size:10px;font-family:monospace;color:var(--text2);width:72px;flex-shrink:0">${t.tt_number||'—'}</span>
-        <span style="font-size:11px;font-weight:500;width:58px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
-        <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
-        ${t.site_class?cbadge(t.site_class):''}
-        ${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
-        <span style="font-size:10px;color:var(--text2);flex-shrink:0">${t.ticket_date||'—'}</span>
-      </div>
+  const ticketCard=(t,showUrgTag)=>{
+    const urg=showUrgTag&&isUrgent(t.tt_issue,t.site_class);
+    const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
+    return`<div style="padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:7px;${urg?'border-left:3px solid var(--pri);padding-left:9px;background:#fff5f5':''}" onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}' " onmouseout="this.style.background='${urg?'#fff5f5':'transparent'}'" onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+      <span style="font-size:10px;font-family:monospace;color:var(--text2);width:78px;flex-shrink:0">${t.tt_number||'—'}</span>
+      <span style="font-size:11px;font-weight:500;width:62px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
+      <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
+      ${t.site_class?cbadge(t.site_class):''}
+      ${urg?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
+      <span style="font-size:10px;color:var(--text2);flex-shrink:0;margin-right:4px">${t.ticket_date||'—'}</span>
+      ${canEdit&&t.id?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0">Edit</button>`:''}
     </div>`;
+  };
+
 
   mc.innerHTML=`
   <style>
