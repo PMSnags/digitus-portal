@@ -339,10 +339,10 @@ async function rDash(){
   const[{data:rec},{data:urgDash}]=await Promise.all([
     sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
-      .in('site_class',['Class A','Class B']).in('status',['Open','Pending'])
-      .order('ticket_date',{ascending:true}).limit(8),
+      .in('status',['Open','Pending'])
+      .order('ticket_date',{ascending:true}).limit(500),
   ]);
-  const urgDashFiltered=(urgDash||[]).filter(t=>isUrgent(t.tt_issue,t.site_class));
+  const urgDashFiltered=(urgDash||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
   mc.innerHTML=`
   <div class="mrow">
     ${[['Total',T,'All regions','#185FA5'],['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)'],
@@ -371,7 +371,7 @@ async function rDash(){
   ${urgDashFiltered.length>0?`
   <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:var(--rl);margin-bottom:12px;overflow:hidden">
     <div style="background:#fef2f2;padding:10px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:13px;font-weight:500;color:#991b1b">&#9888; Urgent &mdash; Class A/B + AC/Power (${urgDashFiltered.length} open)</span>
+      <span style="font-size:13px;font-weight:500;color:#991b1b">&#9888; Urgent &mdash; Class A/B (all issues) + AC/Power (all classes) (${urgDashFiltered.length} open)</span>
       <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">Full KPI &rarr;</button>
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed">
