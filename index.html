@@ -1040,7 +1040,7 @@ function rBulk(){
 
 async function runBulk(){
   const raw=document.getElementById('bk-tts').value||'';
-  const tts=raw.split(/[
+  const tts=raw.replace(/,/g,String.fromCharCode(10)).split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
 ,]+/).map(s=>s.trim()).filter(Boolean);
   if(!tts.length){toast('Paste at least one TT number',1);return;}
 
