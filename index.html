@@ -703,7 +703,7 @@ async function rKPI(){
     // Repeated by site + issue combo
     sb.from('tickets').select('site_id_canonical,tt_issue').not('site_id_canonical','is',null).not('tt_issue','is',null).limit(100000),
     // Aging
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
+    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
     // 6 months — total tickets per month
     ...months6.map(m=>sb.from('tickets').select('*',{count:'exact',head:true}).gte('ticket_date',m.start).lte('ticket_date',m.end)),
     // 6 months — closed tickets per month
@@ -961,7 +961,7 @@ async function rTix(){
     <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
     ${ce?'<button class="btn bpri" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
   </div>
-  <div class="card"><div class="tw"><table><thead><tr>
+  <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:900px"><thead><tr>
     ${cols.map(c=>{
       const isSorted=srt.col===c.id;
       return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc}'};S.tpage=1;rTix()"
@@ -993,7 +993,7 @@ async function updSt(id,st){
   const{error}=await sb.from('tickets').update({status:st,updated_by:S.name}).eq('id',id);
   if(error){toast('Error updating status',1);return;}
   toast('Status updated');
-  const t=S.tickets.find(x=>x.id===id);if(t)t.status=st;
+  const t=S.tickets.find(x=>x.id==id||x.id===parseInt(id));if(t)t.status=st;
 }
 
 // NEW TICKET
