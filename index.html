@@ -820,13 +820,35 @@ async function rStaff(){
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><div class="ct">Portal users (${us.length})</div></div>
       <div class="tw"><table><thead><tr>
-        <th>Display name</th><th>Role</th><th>Status</th><th style="width:90px">Action</th>
+        <th>Display name</th><th>Role</th><th>Status</th><th style="width:180px">Actions</th>
       </tr></thead><tbody>
-        ${us.map(u=>`<tr>
-          <td style="font-weight:500">${u.display_name}</td>
-          <td><span class="rbdg" style="${u.role==='admin'?'background:#3D0010;color:#ff6b8a':u.role==='noc'?'background:var(--dark3);color:#ccc':'background:#1A0508;color:#ff9aaa'}">${u.role}</span></td>
+        ${us.map(u=>`<tr id="urow-${u.id}">
+          <td>
+            <span id="uname-${u.id}" style="font-weight:500">${u.display_name}</span>
+            <input id="uname-input-${u.id}" type="text" value="${u.display_name}"
+              style="display:none;font-size:13px;padding:4px 7px;width:160px">
+          </td>
+          <td>
+            <span id="urole-${u.id}">
+              <span class="rbdg" style="${u.role==='admin'?'background:#3D0010;color:#ff6b8a':u.role==='noc'?'background:var(--dark3);color:#ccc':'background:#1A0508;color:#ff9aaa'}">${u.role}</span>
+            </span>
+            <select id="urole-sel-${u.id}" style="display:none;font-size:12px;padding:3px 6px;width:120px">
+              <option value="noc" ${u.role==='noc'?'selected':''}>NOC</option>
+              <option value="management" ${u.role==='management'?'selected':''}>Management</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </td>
           <td>${u.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
-          <td><button class="btn bsm" onclick="togUsr('${u.id}',${u.is_active})">${u.is_active?'Deactivate':'Activate'}</button></td>
+          <td style="display:flex;gap:5px;flex-wrap:wrap">
+            <span id="uact-view-${u.id}">
+              <button class="btn bsm" onclick="editUsr('${u.id}')">Edit</button>
+              <button class="btn bsm" onclick="togUsr('${u.id}',${u.is_active})">${u.is_active?'Deactivate':'Activate'}</button>
+            </span>
+            <span id="uact-edit-${u.id}" style="display:none;gap:5px">
+              <button class="btn bsm bdark" onclick="saveUsr('${u.id}')">Save</button>
+              <button class="btn bsm" onclick="cancelUsr('${u.id}','${u.display_name}','${u.role}')">Cancel</button>
+            </span>
+          </td>
         </tr>`).join('')}
       </tbody></table></div>
     </div>
@@ -1157,6 +1179,41 @@ async function changePassword(){
   document.getElementById('pw-new').value='';
   document.getElementById('pw-confirm').value='';
   toast('Password updated');
+}
+
+
+// USER EDIT FUNCTIONS
+function editUsr(id){
+  document.getElementById('uname-'+id).style.display='none';
+  document.getElementById('uname-input-'+id).style.display='inline-block';
+  document.getElementById('urole-'+id).style.display='none';
+  document.getElementById('urole-sel-'+id).style.display='inline-block';
+  document.getElementById('uact-view-'+id).style.display='none';
+  document.getElementById('uact-edit-'+id).style.display='flex';
+}
+
+function cancelUsr(id,name,role){
+  document.getElementById('uname-input-'+id).value=name;
+  document.getElementById('uname-'+id).style.display='inline';
+  document.getElementById('uname-input-'+id).style.display='none';
+  document.getElementById('urole-'+id).style.display='inline';
+  document.getElementById('urole-sel-'+id).style.display='none';
+  document.getElementById('uact-view-'+id).style.display='inline';
+  document.getElementById('uact-edit-'+id).style.display='none';
+}
+
+async function saveUsr(id){
+  const newName=document.getElementById('uname-input-'+id).value.trim();
+  const newRole=document.getElementById('urole-sel-'+id).value;
+  if(!newName){toast('Display name cannot be blank',1);return;}
+  const{error}=await sb.from('users').update({display_name:newName,role:newRole}).eq('id',id);
+  if(error){toast('Error: '+error.message,1);return;}
+  toast('User updated');
+  // Update display without full reload
+  document.getElementById('uname-'+id).textContent=newName;
+  const roleColors={admin:'background:#3D0010;color:#ff6b8a',noc:'background:var(--dark3);color:#ccc',management:'background:#1A0508;color:#ff9aaa'};
+  document.getElementById('urole-'+id).innerHTML=`<span class="rbdg" style="${roleColors[newRole]||roleColors.noc}">${newRole}</span>`;
+  cancelUsr(id,newName,newRole);
 }
 
 // HELPERS
