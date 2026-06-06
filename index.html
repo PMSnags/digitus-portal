@@ -780,7 +780,12 @@ async function rStaff(){
     sb.from('staff').select('*').order('name'),
     sb.rpc('get_all_users'),
   ]);
-  const st=stRes.data||[],us=usRes.data||usRes||[];
+  const st=stRes.data||[];
+  // RPC returns array directly in .data
+  let us=[];
+  if(usRes&&!usRes.error&&Array.isArray(usRes.data)){us=usRes.data;}
+  else if(usRes&&Array.isArray(usRes)){us=usRes;}
+  else if(usRes&&usRes.error){console.warn('users rpc error:',usRes.error);}
   const mc=document.getElementById('mc');
   mc.innerHTML=`
   <div style="max-width:760px">
