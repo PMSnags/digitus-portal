@@ -18,6 +18,21 @@
   --text:#111;--text2:#6b6b6b;--text3:#aaa;
   --r:6px;--rl:10px;
 }
+#app.sidebar-mode{flex-direction:row}
+#app.sidebar-mode .nav{display:none}
+.sb-nav{width:172px;background:var(--dark);flex-shrink:0;display:flex;flex-direction:column;min-height:100vh}
+.sb-nav-logo{padding:14px;border-bottom:0.5px solid #1d1d1d}
+.sb-nav-dg{font-size:12px;font-weight:500;color:#fff;letter-spacing:.2px}
+.sb-nav-sub{font-size:9px;color:#555;margin-top:1px}
+.sb-section{font-size:9px;font-weight:500;color:#444;text-transform:uppercase;letter-spacing:.08em;padding:14px 14px 5px}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12px;color:#777;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;border-right:2px solid transparent}
+.sb-item i{font-size:14px;flex-shrink:0}
+.sb-item.active{color:#fff;background:rgba(200,16,46,.15);border-right-color:var(--pri)}
+.sb-item:hover:not(.active){color:#bbb;background:#1a1a1a}
+.sb-badge{margin-left:auto;background:var(--pri);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:500}
+.sb-foot{margin-top:auto;border-top:0.5px solid #1d1d1d;padding:10px 14px}
+.sb-avatar{width:24px;height:24px;background:var(--pri);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:500;flex-shrink:0}
+.sb-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13.5px;color:var(--text);background:var(--bg);min-height:100vh}
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 button{cursor:pointer;font-family:inherit;font-size:13px;border-radius:var(--r);transition:background .12s,opacity .12s}
@@ -208,15 +223,16 @@ tr:hover td{background:#fafafa}
     <div class="tb-right">
       <span id="upill" class="tb-user"></span>
       <span id="urole" class="tb-role"></span>
-      <button class="tb-logout" onclick="doLogout()">Sign out</button>
     </div>
   </div>
-  <div id="preview-bar" style="display:none;background:#1d4ed8;padding:7px 20px;display:none;align-items:center;justify-content:space-between">
-    <span style="font-size:12px;color:#fff">&#128065; Previewing as: <strong id="preview-name"></strong> (<span id="preview-role"></span>) &mdash; this is a simulation only, no changes will be saved</span>
-    <button onclick="exitPreview()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;font-size:12px;border-radius:4px;cursor:pointer">Exit preview</button>
+  <div class="sb-main">
+    <div id="preview-bar" style="display:none;background:#1d4ed8;padding:7px 20px;align-items:center;justify-content:space-between">
+      <span style="font-size:12px;color:#fff">&#128065; Previewing as: <strong id="preview-name"></strong> (<span id="preview-role"></span>) &mdash; simulation only, no changes saved</span>
+      <button onclick="exitPreview()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;font-size:12px;border-radius:4px;cursor:pointer">Exit preview</button>
+    </div>
+    <div class="nav" id="nav" style="display:none"></div>
+    <div class="main" id="mc"></div>
   </div>
-  <div class="nav" id="nav"></div>
-  <div class="main" id="mc"></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -286,12 +302,50 @@ function showAErr(m){const e=document.getElementById('aerr');e.textContent=m;e.s
 
 async function showApp(){
   document.getElementById('auth').style.display='none';
-  const app=document.getElementById('app');app.style.display='flex';app.style.flexDirection='column';
+  const app=document.getElementById('app');
+  app.style.display='flex';app.style.flexDirection='row';
   document.getElementById('upill').textContent=S.name;
   const rb=document.getElementById('urole');rb.textContent=S.role;
   const rc={admin:'tb-role-admin',noc:'tb-role-noc',management:'tb-role-management',guest:'tb-role-guest'};
   rb.className='tb-role '+(rc[S.role]||rc.guest);
-  await loadLkp();await loadStaff();renderNav();renderTab('dashboard');
+  await loadLkp();await loadStaff();renderSidebar();renderTab('dashboard');
+}
+
+function renderSidebar(){
+  let existing=document.getElementById('sidebar-nav');
+  if(existing)existing.remove();
+  const nav=document.createElement('div');
+  nav.id='sidebar-nav';nav.className='sb-nav';
+  const tabs=getTabs();
+  const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',kpi:'ti-chart-bar',new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',profile:'ti-user',mstaff:'ti-users',mlkp:'ti-adjustments'};
+  const tabSections={dashboard:'Main',tickets:'Main',kpi:'Main',new_ticket:'Operations',cleaner:'Operations',bulk:'Operations',profile:'Account',mstaff:'Admin',mlkp:'Admin'};
+  let lastSection='';
+  let itemsHtml='';
+  tabs.forEach(t=>{
+    const sec=tabSections[t.id]||'';
+    if(sec!==lastSection){itemsHtml+=`<div class="sb-section">${sec}</div>`;lastSection=sec;}
+    const ico=tabIcons[t.id]||'ti-circle';
+    const badge=t.id==='tickets'?`<span class="sb-badge">37k</span>`:'';
+    itemsHtml+=`<button class="sb-item${S.tab===t.id?' active':''}" onclick="renderTab('${t.id}');renderSidebar()"><i class="ti ${ico}" aria-hidden="true"></i>${t.l}${badge}</button>`;
+  });
+  nav.innerHTML=`
+    <div class="sb-nav-logo">
+      <div class="sb-nav-dg">Digitus</div>
+      <div class="sb-nav-sub">NOC TT Tracker Portal</div>
+    </div>
+    ${itemsHtml}
+    <div class="sb-foot">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div class="sb-avatar">${S.name.charAt(0).toUpperCase()}</div>
+        <div>
+          <div style="font-size:11px;color:#aaa">${S.name}</div>
+          <div style="font-size:9px;color:#555">${S.role}</div>
+        </div>
+        <button onclick="doLogout()" style="margin-left:auto;background:transparent;border:1px solid #333;color:#666;padding:3px 7px;font-size:10px;border-radius:4px;cursor:pointer">Out</button>
+      </div>
+    </div>`;
+  const appEl=document.getElementById('app');
+  appEl.insertBefore(nav,appEl.firstChild);
 }
 async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');
   S.lkp={};(data||[]).forEach(r=>{if(!S.lkp[r.category])S.lkp[r.category]=[];S.lkp[r.category].push(r.value);});}
@@ -322,94 +376,224 @@ function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTM
 // DASHBOARD
 async function rDash(){
   const mc=document.getElementById('mc');
-  const[tot,opn,pnd,att,cls]=await Promise.all([
+  mc.innerHTML='<div class="loading">Loading dashboard...</div>';
+
+  const[tot,opn,pnd,att,cls,
+    regDXB,regNE,regAUH,regAAN,regWR,
+    recRes,urgRes,agingRes,repRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','DXB'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','NE'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AUH'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AAN'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','WR'),
+    sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by').order('created_at',{ascending:false}).limit(10),
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
+    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
   ]);
+
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
+  const rc={DXB:regDXB.count||0,NE:regNE.count||0,AUH:regAUH.count||0,AAN:regAAN.count||0,WR:regWR.count||0};
+  const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,8);
+  const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,5);
+  const siteCounts={};(repRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
+  const topRep=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const rec=recRes.data||[];
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  // Region counts via separate queries
-  const regData=await Promise.all(['DXB','NE','AUH','AAN','WR'].map(r=>
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region',r)));
-  const rc={DXB:regData[0].count||0,NE:regData[1].count||0,AUH:regData[2].count||0,AAN:regData[3].count||0,WR:regData[4].count||0};
+  const regBar=(r)=>{
+    const c=rc[r]||0;const p=T?Math.round(c/T*100):0;
+    return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:500;color:var(--text);width:32px">${r}</div>
+      <div style="flex:1;height:7px;background:var(--surf2);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${p}%;background:var(--pri);border-radius:3px"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);width:44px;text-align:right">${c.toLocaleString()}</div>
+    </div>`;
+  };
 
-  const[{data:rec},{data:urgDash}]=await Promise.all([
-    sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10),
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
-      .in('status',['Open','Pending'])
-      .order('ticket_date',{ascending:true}).limit(500),
-  ]);
-  const urgDashFiltered=(urgDash||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
+  const dayBadge=(d)=>{
+    if(d>30)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FCEBEB;color:#A32D2D">${d}d</span>`;
+    if(d>14)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FAEEDA;color:#854F0B">${d}d</span>`;
+    return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#E6F1FB;color:#185FA5">${d}d</span>`;
+  };
+
+  const ticketCard=(t,showUrgTag)=>`
+    <div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})" style="padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'border-left:3px solid var(--pri);padding-left:9px;background:#fff5f5':''}" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'#fff5f5':'transparent'}'">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:10px;font-family:monospace;color:var(--text2);width:72px;flex-shrink:0">${t.tt_number||'—'}</span>
+        <span style="font-size:11px;font-weight:500;width:58px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
+        <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
+        ${t.site_class?cbadge(t.site_class):''}
+        ${showUrgTag&&isUrgent(t.tt_issue,t.site_class)?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
+        <span style="font-size:10px;color:var(--text2);flex-shrink:0">${t.ticket_date||'—'}</span>
+      </div>
+    </div>`;
+
   mc.innerHTML=`
-  <div class="mrow">
-    ${[['Total',T,'All regions','#185FA5'],['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)'],
-       ['Pending',P,Math.round(P/(T||1)*100)+'% of total','var(--amber)'],
-       ['Attended',A,Math.round(A/(T||1)*100)+'% of total','var(--blue)'],
-       ['Closed',C,Math.round(C/(T||1)*100)+'% closure rate','var(--green)'],
-    ].map(([l,v,s,c])=>`<div class="mc"><div class="ml">${l}</div><div class="mv" style="color:${c}">${v.toLocaleString()}</div><div class="ms">${s}</div></div>`).join('')}
+  <style>
+    .dash-shell{display:grid;grid-template-columns:1fr 1fr 1.5fr;grid-template-rows:auto 1fr auto;gap:10px}
+    .dash-stat-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:background .12s}
+    .dstat:hover{background:var(--surf2)}
+    .dstat-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+    .dstat-val{font-size:22px;font-weight:500;line-height:1;letter-spacing:-.5px}
+    .dstat-sub{font-size:10px;color:var(--text3);margin-top:2px}
+    .dpanel{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+    .dpanel-head{padding:9px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surf2)}
+    .dpanel-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px}
+    .dpanel-body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+    .live-dot{width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;margin-right:4px}
+  </style>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:13px;font-weight:500;color:var(--text)">Dashboard</div>
+    <div style="font-size:11px;color:var(--text2)">${dateStr} &nbsp;·&nbsp; <span class="live-dot"></span>${timeStr}</div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div class="card"><div class="ch"><div class="ct">Tickets by region</div></div><div class="cb">
-      ${['DXB','NE','AUH','AAN','WR'].map(r=>{const c=rc[r]||0,p=T?Math.round(c/T*100):0;return`<div class="bar-row">
-        <div class="bar-lbl" style="width:50px">${r}</div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${p}%;background:var(--pri)"></div></div>
-        <div class="bar-cnt">${c.toLocaleString()}</div>
-      </div>`;}).join('')}
-    </div></div>
-    <div class="card"><div class="ch"><div class="ct">Status breakdown</div></div><div class="cb">
-      ${[['Open',O,'var(--pri)'],['Pending',P,'var(--amber)'],['Attended',A,'var(--blue)'],['Closed',C,'var(--green)']].map(([l,v,c])=>{
-        const p=T?Math.round(v/T*100):0;return`<div class="bar-row">
-          <div class="bar-lbl" style="width:70px;color:${c};font-weight:500">${l}</div>
-          <div class="bar-bg"><div class="bar-fill" style="width:${p}%;background:${c}"></div></div>
-          <div class="bar-cnt">${v.toLocaleString()}</div>
-        </div>`;}).join('')}
-    </div></div>
-  </div>
-  ${urgDashFiltered.length>0?`
-  <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:var(--rl);margin-bottom:12px;overflow:hidden">
-    <div style="background:#fef2f2;padding:10px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:13px;font-weight:500;color:#991b1b">&#9888; Urgent &mdash; Class A/B (all issues) + AC/Power (all classes) (${urgDashFiltered.length} open)</span>
-      <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">Full KPI &rarr;</button>
+  <div class="dash-shell">
+    <div class="dash-stat-row">
+      ${[['Total',T,'All regions','#185FA5',''],
+         ['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)','Open'],
+         ['Pending',P,Math.round(P/(T||1)*100)+'% of total','var(--amber)','Pending'],
+         ['Attended',A,Math.round(A/(T||1)*100)+'% of total','var(--blue)','Attended'],
+         ['Closed',C,Math.round(C/(T||1)*100)+'% resolved','var(--green)','Closed'],
+      ].map(([l,v,s,c,filt])=>`<div class="dstat" onclick="${filt?`S.tf.status='${filt}';S.tf.q='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:'renderTab(\'tickets\')'}">
+        <div class="dstat-label">${l}</div>
+        <div class="dstat-val" style="color:${c}">${v.toLocaleString()}</div>
+        <div class="dstat-sub">${s}</div>
+      </div>`).join('')}
     </div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed">
-      <thead><tr style="background:#fef2f2">
-        ${['TT Number','Region','Date','Site','Class','Issue','Status'].map((h,i)=>
-          `<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:#9ca3af;border-bottom:1px solid #fecaca;text-transform:uppercase;${i===0?'width:110px':i===1?'width:60px':i===2?'width:90px':i===3||i===4||i===6?'width:90px':''}">${h}</th>`).join('')}
-      </tr></thead>
-      <tbody>
-        ${urgDashFiltered.map(t=>`<tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-family:monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_number||'&mdash;'}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${t.region?`<span class="badge bo">${t.region}</span>`:'&mdash;'}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-size:12px;color:#6b7280">${t.ticket_date||'&mdash;'}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.site_id_canonical||'&mdash;'}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${cbadge(t.site_class)}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.tt_issue||''}">${t.tt_issue||'&mdash;'}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${sbadge(t.status)}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table></div>
-  </div>`:''}
-  <div class="card"><div class="ch"><div class="ct">Recent tickets</div><button class="btn bsm" onclick="renderTab('tickets')">View all →</button></div>
-  <div class="tw"><table><thead><tr>
-    <th style="width:110px;cursor:default">TT Number</th><th style="width:60px;cursor:default">Region</th>
-    <th style="width:90px;cursor:default">Date</th><th style="width:100px;cursor:default">Site (raw)</th>
-    <th style="width:90px;cursor:default">Corrected Site ID</th><th style="width:190px;cursor:default">Issue</th>
-    <th style="width:75px;cursor:default">Class</th><th style="width:90px;cursor:default">Status</th>
-  </tr></thead><tbody>
-    ${(rec||[]).map(t=>`<tr>
-      <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
-      <td><span class="badge bp">${t.region}</span></td>
-      <td style="color:var(--text2);font-size:12px">${t.ticket_date||'—'}</td>
-      <td style="font-size:12px;color:var(--text2)" title="${t.site_id_raw||''}">${t.site_id_raw||'—'}</td>
-      <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
-      <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-      <td>${cbadge(t.site_class)}</td><td>${sbadge(t.status)}</td>
-    </tr>`).join('')}
-  </tbody></table></div></div>`;
+
+    <div class="dpanel">
+      <div class="dpanel-head">
+        <div class="dpanel-title">Region status</div>
+      </div>
+      <div class="dpanel-body" style="padding:12px">
+        ${['DXB','NE','AUH','AAN','WR'].map(r=>regBar(r)).join('')}
+        <div style="border-top:0.5px solid var(--border);margin-top:8px;padding-top:10px">
+          ${[['Class A','#EEEDFE','#3C3489'],['Class B','#E6F1FB','#0C447C'],['Class C','#F1EFE8','#444441']].map(([cls,bg,col])=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;background:${bg};color:${col}">${cls}</span>
+            <span style="font-size:11px;color:var(--text2)">click stat cards to filter</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="dpanel">
+      <div class="dpanel-head">
+        <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent &amp; aging</div>
+        <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">KPI &rarr;</button>
+      </div>
+      <div class="dpanel-body">
+        ${urgFiltered.length>0?`
+        <div style="padding:5px 10px;background:#fef2f2;border-bottom:0.5px solid #fecaca;font-size:9px;font-weight:500;color:#991b1b;text-transform:uppercase;letter-spacing:.06em">Urgent — ${urgFiltered.length} open</div>
+        ${urgFiltered.map(t=>ticketCard(t,true)).join('')}`:'<div style="padding:10px 12px;font-size:12px;color:var(--text2)">No urgent tickets</div>'}
+        <div style="padding:5px 10px;background:var(--surf2);border-top:0.5px solid var(--border);border-bottom:0.5px solid var(--border);font-size:9px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Aging open tickets</div>
+        ${agingTix.map(t=>`
+        <div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:0.5px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:11px;font-weight:500;width:58px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
+          <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
+          ${dayBadge(t.days)}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="dpanel">
+      <div class="dpanel-head">
+        <div class="dpanel-title"><span class="live-dot"></span>Live ticket feed</div>
+        <span style="font-size:10px;color:var(--text2)">newest first</span>
+      </div>
+      <div class="dpanel-body">
+        ${rec.map(t=>ticketCard(t,false)).join('')}
+      </div>
+    </div>
+
+    <div class="dpanel" style="flex-direction:row;align-items:stretch">
+      <div style="flex:1;padding:12px;border-right:0.5px solid var(--border)">
+        <div style="font-size:11px;font-weight:500;margin-bottom:10px">Resolution rate</div>
+        <div style="font-size:32px;font-weight:500;color:${C>0?'var(--green)':'var(--pri)'};letter-spacing:-.5px;margin-bottom:6px">${T>0?Math.round(C/T*100):0}%</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px">${C.toLocaleString()} closed of ${T.toLocaleString()}</div>
+        ${[['Closed',C,'var(--green)'],['Attended',A,'var(--blue)'],['Pending',P,'var(--amber)'],['Open',O,'var(--pri)']].map(([l,v,c])=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:10px;color:${c};font-weight:500;width:54px">${l}</span>
+          <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${T?Math.round(v/T*100):0}%;background:${c};border-radius:3px"></div>
+          </div>
+          <span style="font-size:10px;color:var(--text2);width:32px;text-align:right">${v.toLocaleString()}</span>
+        </div>`).join('')}
+      </div>
+      <div style="flex:1;padding:12px">
+        <div style="font-size:11px;font-weight:500;margin-bottom:10px">Top repeated sites</div>
+        ${topRep.length?topRep.map(([site,cnt])=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+          <span style="font-size:11px;font-weight:500;width:58px;flex-shrink:0">${site}</span>
+          <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${topRep[0]?Math.round(cnt/topRep[0][1]*100):0}%;background:var(--pri);border-radius:3px"></div>
+          </div>
+          <span style="font-size:10px;font-weight:500;color:var(--pri);width:24px;text-align:right">${cnt}x</span>
+        </div>`).join(''):'<div style="font-size:12px;color:var(--text2)">No repeated sites</div>'}
+      </div>
+    </div>
+
+  </div>`;
 }
+
+function expandTicket(t){
+  const ex=document.getElementById('ticket-expand');
+  if(ex)ex.remove();
+  const panel=document.createElement('div');
+  panel.id='ticket-expand';
+  panel.style.cssText='position:fixed;top:0;right:0;width:460px;height:100vh;background:var(--surf);border-left:0.5px solid var(--border);z-index:500;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.07)';
+  const urg=isUrgent(t.tt_issue,t.site_class);
+  panel.innerHTML=`
+    <div style="background:var(--dark);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
+      <div>
+        <div style="font-size:12px;font-weight:500;color:#fff">${t.tt_number||'—'}</div>
+        <div style="font-size:10px;color:#666;margin-top:1px">${t.ticket_date||'—'} &nbsp;·&nbsp; ${t.region||'—'}</div>
+      </div>
+      <button onclick="document.getElementById('ticket-expand').remove()" style="background:transparent;border:1px solid #333;color:#aaa;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer">Close</button>
+    </div>
+    ${urg?`<div style="background:#fef2f2;border-bottom:1px solid #fecaca;padding:8px 18px;font-size:11px;font-weight:500;color:#991b1b">&#9888; Urgent ticket — requires immediate attention</div>`:''}
+    <div style="padding:18px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px">
+        ${[
+          ['Site (raw)',t.site_id_raw||'—'],
+          ['Corrected site ID',t.site_id_canonical||'—'],
+          ['Site class',t.site_class||'—'],
+          ['Site type',t.site_type||'—'],
+          ['Issue type',t.tt_issue||'—'],
+          ['Status',t.status||'—'],
+          ['BO team',t.bo_team||'—'],
+          ['Tech name',t.tech_name||'—'],
+          ['Date attended',t.tt_date_attended||'—'],
+          ['Outage start',t.outage_start||'—'],
+          ['Battery status',t.battery_status||'—'],
+          ['Last updated by',t.updated_by||'—'],
+        ].map(([l,v],i)=>`
+        <div style="padding:8px 12px;border-bottom:0.5px solid var(--border);${i%2===0?'border-right:0.5px solid var(--border)':''}">
+          <div style="font-size:9px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${l}</div>
+          <div style="font-size:12px;color:var(--text);font-weight:${l==='Corrected site ID'?'500':'400'}">${v}</div>
+        </div>`).join('')}
+      </div>
+      ${t.remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.remarks}</div></div>`:''}
+      ${t.resolution?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Resolution</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.resolution}</div></div>`:''}
+      ${t.closure_remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Closure remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.closure_remarks}</div></div>`:''}
+      ${(S.role==='noc'||S.role==='management'||S.role==='admin')?`
+      <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);display:flex;gap:8px">
+        <button class="btn bpri" style="flex:1;justify-content:center" onclick="document.getElementById('ticket-expand').remove();editTicket(${t.id})">Edit ticket</button>
+        <button class="btn" onclick="document.getElementById('ticket-expand').remove()">Close</button>
+      </div>`:''}
+    </div>`;
+  document.body.appendChild(panel);
+}
+
 
 // KPI REPORT
 async function rKPI(){
@@ -1401,7 +1585,7 @@ function previewAs(role, name){
   const rc = {admin:'tb-role-admin',noc:'tb-role-noc',management:'tb-role-management',guest:'tb-role-guest'};
   rb.className = 'tb-role ' + (rc[role] || rc.guest);
   // Re-render nav and dashboard with simulated role
-  renderNav();
+  renderSidebar();
   renderTab('dashboard');
   toast('Previewing as ' + role + ' — ' + name);
 }
@@ -1421,7 +1605,7 @@ function exitPreview(){
   const rc = {admin:'tb-role-admin',noc:'tb-role-noc',management:'tb-role-management',guest:'tb-role-guest'};
   rb.className = 'tb-role ' + (rc[S.role] || rc.guest);
   // Re-render with real role
-  renderNav();
+  renderSidebar();
   renderTab('dashboard');
   toast('Exited preview — back to admin view');
 }
