@@ -434,7 +434,7 @@ async function rDash(){
   const ccOpen={count:ccOpenRes.count||0},ccClosed={count:ccClosedRes.count||0};
   const rc={DXB:regDXB.count||0,NE:regNE.count||0,AUH:regAUH.count||0,AAN:regAAN.count||0,WR:regWR.count||0};
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,8);
-  const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,50);
+  const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,10);
   const siteCounts={};(repRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
   const topRep=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const rec=recRes.data||[];
@@ -468,7 +468,8 @@ async function rDash(){
       <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
       ${t.site_class?cbadge(t.site_class):''}
       ${urg?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
-      <span style="font-size:10px;color:var(--text2);flex-shrink:0;margin-right:4px">${t.ticket_date||'—'}</span>
+      <span style="font-size:10px;color:var(--text2);flex-shrink:0">${t.ticket_date||'—'}</span>
+      ${sbadge(t.status)}
       ${canEdit&&t.id?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0">Edit</button>`:''}
     </div>`;
   };
