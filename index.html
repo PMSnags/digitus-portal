@@ -421,9 +421,9 @@ async function rDash(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').eq('status','Closed'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
-    sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by').order('created_at',{ascending:false}).limit(10),
+    sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').order('created_at',{ascending:false}).limit(10),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
+    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tt_date_attended,remarks,resolution,closure_remarks,battery_status,updated_by,site_type').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
     sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
   ]);
 
@@ -533,19 +533,23 @@ async function rDash(){
         <div class="dpanel-body" style="padding:12px">
           ${[['Class A',cA,caOpen.count,caClosed.count,'#EEEDFE','#3C3489'],['Class B',cB,cbOpen.count,cbClosed.count,'#E6F1FB','#0C447C'],['Class C',cC,ccOpen.count,ccClosed.count,'#F1EFE8','#444441']].map(([cls,cnt,op,cl,bg,col])=>`
           <div onclick="S.tf.sclass='${cls}';S.tf.q='';S.tf.status='';S.tf.region='';S.tpage=1;renderTab('tickets')"
-            style="margin-bottom:10px;cursor:pointer;padding:6px 8px;border-radius:var(--r)"
+            style="margin-bottom:12px;cursor:pointer;padding:6px 8px;border-radius:var(--r)"
             onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1px">
               <span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:4px;background:${bg};color:${col};width:70px;text-align:center;flex-shrink:0">${cls}</span>
-              <div style="flex:1;height:8px;background:var(--surf2);border-radius:4px;overflow:hidden;display:flex">
-                <div style="height:100%;width:${cnt?Math.round(cl/cnt*100):0}%;background:var(--green);border-radius:4px 0 0 4px" title="Closed: ${cl.toLocaleString()}"></div>
-                <div style="height:100%;width:${cnt?Math.round(op/cnt*100):0}%;background:var(--pri)" title="Open: ${op.toLocaleString()}"></div>
+              <span style="font-size:9px;color:var(--green);width:36px;flex-shrink:0">Closed</span>
+              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${cnt?Math.round(cl/cnt*100):0}%;background:var(--green);border-radius:3px"></div>
               </div>
-              <span style="font-size:11px;font-weight:500;color:var(--text);width:44px;text-align:right;flex-shrink:0">${cnt.toLocaleString()}</span>
+              <span style="font-size:10px;font-weight:500;color:var(--green);width:36px;text-align:right;flex-shrink:0">${cl.toLocaleString()}</span>
             </div>
-            <div style="display:flex;gap:14px;padding-left:80px">
-              <span style="font-size:10px;color:var(--green)">&#9679; Closed: ${cl.toLocaleString()}</span>
-              <span style="font-size:10px;color:var(--pri)">&#9679; Open: ${op.toLocaleString()}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:70px;flex-shrink:0"></span>
+              <span style="font-size:9px;color:var(--pri);width:36px;flex-shrink:0">Open</span>
+              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${cnt?Math.round(op/cnt*100):0}%;background:var(--pri);border-radius:3px"></div>
+              </div>
+              <span style="font-size:10px;font-weight:500;color:var(--pri);width:36px;text-align:right;flex-shrink:0">${op.toLocaleString()}</span>
             </div>
           </div>`).join('')}
         </div>
@@ -919,7 +923,6 @@ async function rTix(){
     {id:'status',l:'Status',w:'100px'},
     {id:'tt_date_attended',l:'Attended',w:'85px'},
     {id:'updated_by',l:'Updated by',w:'95px'},
-    {id:'_edit',l:'',w:'55px'},
   ];
 
   mc.innerHTML=`
@@ -960,13 +963,13 @@ async function rTix(){
   </div>
   <div class="card"><div class="tw"><table><thead><tr>
     ${cols.map(c=>{
-      if(c.id==='_edit')return`<th style="width:${c.w};cursor:default"></th>`;
       const isSorted=srt.col===c.id;
       return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc}'};S.tpage=1;rTix()"
         class="${isSorted?'sort-'+srt.dir:''}">${c.l}</th>`;
     }).join('')}
+    <th style="width:55px;cursor:default;text-align:center">Action</th>
   </tr></thead><tbody>
-    ${S.tickets.length===0?`<tr><td colspan="10" class="empty">No tickets found</td></tr>`:
+    ${S.tickets.length===0?`<tr><td colspan="12" class="empty">No tickets found</td></tr>`:
       S.tickets.map(t=>`<tr>
         <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
         <td><span class="badge bp">${t.region}</span></td>
