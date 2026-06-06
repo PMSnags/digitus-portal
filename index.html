@@ -291,9 +291,16 @@ async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is
 // NAV
 function tabs(){
   const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'},{id:'kpi',l:'KPI Report'}];
-  if(S.role!=='guest'){t.push({id:'new_ticket',l:'New Ticket'});t.push({id:'cleaner',l:'Site ID Cleaner'});}
-  if(S.role==='noc'||S.role==='admin'){t.push({id:'bulk',l:'Bulk Update'});}
-  if(S.role==='admin'||S.role==='management'){t.push({id:'mstaff',l:'Manage Staff & Users'});t.push({id:'mlkp',l:'Manage Dropdowns'});}
+  if(S.role!=='guest'){
+    t.push({id:'new_ticket',l:'New Ticket'});
+    t.push({id:'cleaner',l:'Site ID Cleaner'});
+    t.push({id:'bulk',l:'Bulk Update'});
+    t.push({id:'profile',l:'My Account'});
+  }
+  if(S.role==='admin'){
+    t.push({id:'mstaff',l:'Manage Staff & Users'});
+    t.push({id:'mlkp',l:'Manage Dropdowns'});
+  }
   return t;
 }
 function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>
@@ -301,7 +308,7 @@ function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>
 function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
-  else if(t==='bulk')rBulk();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
+  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
 
 // DASHBOARD
 async function rDash(){
@@ -546,7 +553,7 @@ async function rTix(){
   const fr=(S.tpage-1)*PP,to=fr+PP-1;
   const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
   S.tickets=data||[];S.ttotal=count||0;
-  const ce=S.role==='noc'||S.role==='admin';
+  const ce=S.role==='noc'||S.role==='management'||S.role==='admin';
 
   const cols=[
     {id:'tt_number',l:'TT Number',w:'110px'},
@@ -1077,6 +1084,79 @@ async function runBulk(){
     </div>
   </div>`;
   toast('Updated '+updated+' tickets');
+}
+
+
+// MY ACCOUNT / CHANGE PASSWORD
+function rProfile(){
+  const mc=document.getElementById('mc');
+  mc.innerHTML=`
+  <div style="max-width:480px">
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Account details</div></div>
+      <div class="cb">
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px">
+          <div style="width:48px;height:48px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;flex-shrink:0">
+            ${S.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:600">${S.name}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${S.role.charAt(0).toUpperCase()+S.role.slice(1)} &mdash; ${S.user?S.user.email:''}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">Change password</div></div>
+      <div class="cb">
+        <div class="fg" style="grid-template-columns:1fr">
+          <div class="ff">
+            <label>New password</label>
+            <input type="password" id="pw-new" placeholder="Enter new password (min 6 characters)">
+          </div>
+          <div class="ff">
+            <label>Confirm new password</label>
+            <input type="password" id="pw-confirm" placeholder="Re-enter new password">
+          </div>
+        </div>
+        <div id="pw-msg" style="font-size:12px;margin-top:8px;display:none"></div>
+        <div class="fa">
+          <button class="btn bdark" onclick="changePassword()">Update password</button>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text2)">
+          Forgot your password or locked out? Contact <strong>Kaiser</strong> (admin) to reset your account.
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function changePassword(){
+  const np=document.getElementById('pw-new').value;
+  const cp=document.getElementById('pw-confirm').value;
+  const msg=document.getElementById('pw-msg');
+  msg.style.display='none';
+  if(!np||np.length<6){
+    msg.textContent='Password must be at least 6 characters.';
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:8px';
+    return;
+  }
+  if(np!==cp){
+    msg.textContent='Passwords do not match.';
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:8px';
+    return;
+  }
+  const{error}=await sb.auth.updateUser({password:np});
+  if(error){
+    msg.textContent='Error: '+error.message;
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:8px';
+    return;
+  }
+  msg.textContent='Password updated successfully.';
+  msg.style.cssText='display:block;color:var(--green);font-size:12px;margin-top:8px';
+  document.getElementById('pw-new').value='';
+  document.getElementById('pw-confirm').value='';
+  toast('Password updated');
 }
 
 // HELPERS
