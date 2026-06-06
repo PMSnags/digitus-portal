@@ -320,7 +320,13 @@ async function rDash(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('region',r)));
   const rc={DXB:regData[0].count||0,NE:regData[1].count||0,AUH:regData[2].count||0,AAN:regData[3].count||0,WR:regData[4].count||0};
 
-  const{data:rec}=await sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10);
+  const[{data:rec},{data:urgDash}]=await Promise.all([
+    sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10),
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
+      .in('site_class',['Class A','Class B']).in('status',['Open','Pending'])
+      .order('ticket_date',{ascending:true}).limit(8),
+  ]);
+  const urgDashFiltered=(urgDash||[]).filter(t=>isUrgent(t.tt_issue,t.site_class));
   mc.innerHTML=`
   <div class="mrow">
     ${[['Total',T,'All regions','#185FA5'],['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)'],
@@ -346,6 +352,30 @@ async function rDash(){
         </div>`;}).join('')}
     </div></div>
   </div>
+  ${urgDashFiltered.length>0?`
+  <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:var(--rl);margin-bottom:12px;overflow:hidden">
+    <div style="background:#fef2f2;padding:10px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:500;color:#991b1b">&#9888; Urgent &mdash; Class A/B + AC/Power (${urgDashFiltered.length} open)</span>
+      <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">Full KPI &rarr;</button>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed">
+      <thead><tr style="background:#fef2f2">
+        ${['TT Number','Region','Date','Site','Class','Issue','Status'].map((h,i)=>
+          `<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:500;color:#9ca3af;border-bottom:1px solid #fecaca;text-transform:uppercase;${i===0?'width:110px':i===1?'width:60px':i===2?'width:90px':i===3||i===4||i===6?'width:90px':''}">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${urgDashFiltered.map(t=>`<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-family:monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_number||'&mdash;'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${t.region?`<span class="badge bo">${t.region}</span>`:'&mdash;'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-size:12px;color:#6b7280">${t.ticket_date||'&mdash;'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.site_id_canonical||'&mdash;'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${cbadge(t.site_class)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.tt_issue||''}">${t.tt_issue||'&mdash;'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #fef2f2">${sbadge(t.status)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`:''}
   <div class="card"><div class="ch"><div class="ct">Recent tickets</div><button class="btn bsm" onclick="renderTab('tickets')">View all →</button></div>
   <div class="tw"><table><thead><tr>
     <th style="width:110px;cursor:default">TT Number</th><th style="width:60px;cursor:default">Region</th>
@@ -778,7 +808,7 @@ async function runCl(){
 async function rStaff(){
   const[stRes,usRes]=await Promise.all([
     sb.from('staff').select('*').order('name'),
-    sb.from('users').select('*').order('display_name'),
+    sb.from('users').select('id,display_name,role,is_active').order('display_name'),
   ]);
   const st=stRes.data||[],us=usRes.data||[];
   const mc=document.getElementById('mc');
