@@ -400,6 +400,7 @@ async function rDash(){
   const[tot,opn,pnd,att,cls,
     regDXB,regNE,regAUH,regAAN,regWR,
     caRes,cbRes,ccRes,
+    caOpenRes,caClosedRes,cbOpenRes,cbClosedRes,ccOpenRes,ccClosedRes,
     recRes,urgRes,agingRes,repRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
@@ -414,6 +415,12 @@ async function rDash(){
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').eq('status','Closed'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').eq('status','Closed'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
     sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by').order('created_at',{ascending:false}).limit(10),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(30),
@@ -422,6 +429,9 @@ async function rDash(){
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
   const cA=caRes.count||0,cB=cbRes.count||0,cC=ccRes.count||0;
+  const caOpen={count:caOpenRes.count||0},caClosed={count:caClosedRes.count||0};
+  const cbOpen={count:cbOpenRes.count||0},cbClosed={count:cbClosedRes.count||0};
+  const ccOpen={count:ccOpenRes.count||0},ccClosed={count:ccClosedRes.count||0};
   const rc={DXB:regDXB.count||0,NE:regNE.count||0,AUH:regAUH.count||0,AAN:regAAN.count||0,WR:regWR.count||0};
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,8);
   const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,5);
@@ -891,18 +901,18 @@ async function rTix(){
   const ce=S.role==='noc'||S.role==='management'||S.role==='admin';
 
   const cols=[
-    {id:'tt_number',l:'TT Number',w:'110px'},
-    {id:'region',l:'Region',w:'60px'},
-    {id:'ticket_date',l:'Date',w:'90px'},
-    {id:'site_id_raw',l:'Site (raw)',w:'100px'},
-    {id:'site_id_canonical',l:'Corrected Site ID',w:'110px'},
-    {id:'tt_issue',l:'Issue',w:'180px'},
-    {id:'bo_team',l:'BO Team',w:'115px'},
-    {id:'site_class',l:'Class',w:'75px'},
-    {id:'status',l:'Status',w:'105px'},
-    {id:'tt_date_attended',l:'Attended',w:'95px'},
-    {id:'updated_by',l:'Last updated by',w:'110px'},
-    {id:'_edit',l:'',w:'60px'},
+    {id:'tt_number',l:'TT Number',w:'100px'},
+    {id:'region',l:'Region',w:'55px'},
+    {id:'ticket_date',l:'Date',w:'85px'},
+    {id:'site_id_raw',l:'Site (raw)',w:'90px'},
+    {id:'site_id_canonical',l:'Corrected ID',w:'95px'},
+    {id:'tt_issue',l:'Issue',w:'160px'},
+    {id:'bo_team',l:'BO Team',w:'100px'},
+    {id:'site_class',l:'Class',w:'70px'},
+    {id:'status',l:'Status',w:'100px'},
+    {id:'tt_date_attended',l:'Attended',w:'85px'},
+    {id:'updated_by',l:'Updated by',w:'95px'},
+    {id:'_edit',l:'',w:'55px'},
   ];
 
   mc.innerHTML=`
