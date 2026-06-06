@@ -1263,13 +1263,14 @@ async function saveUsr(id){
   const newName=document.getElementById('uname-input-'+id).value.trim();
   const newRole=document.getElementById('urole-sel-'+id).value;
   if(!newName){toast('Display name cannot be blank',1);return;}
-  const{error}=await sb.from('users').update({display_name:newName,role:newRole}).eq('id',id);
+  // Use RPC to bypass RLS restriction on updating other users
+  const{error}=await sb.rpc('update_portal_user',{p_id:id,p_display_name:newName,p_role:newRole});
   if(error){toast('Error: '+error.message,1);return;}
   toast('User updated');
   // Update display without full reload
   document.getElementById('uname-'+id).textContent=newName;
   const roleColors={admin:'background:#3D0010;color:#ff6b8a',noc:'background:var(--dark3);color:#ccc',management:'background:#1A0508;color:#ff9aaa'};
-  document.getElementById('urole-'+id).innerHTML=`<span class="rbdg" style="${roleColors[newRole]||roleColors.noc}">${newRole}</span>`;
+  document.getElementById('urole-'+id).innerHTML='<span class="rbdg" style="'+( roleColors[newRole]||roleColors.noc)+'">'+newRole+'</span>';
   cancelUsr(id,newName,newRole);
 }
 
