@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Hayat Communications — TT Portal</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#0F6E56;--green-dk:#085041;--green-lt:#E1F5EE;
+  --amber:#BA7517;--amber-lt:#FAEEDA;
+  --red:#A32D2D;--red-lt:#FCEBEB;
+  --blue:#185FA5;--blue-lt:#E6F1FB;
+  --gray:#5F5E5A;--gray-lt:#F1EFE8;
+  --border:#e2e2e0;--bg:#f5f5f3;--surf:#fff;--surf2:#f9f9f7;
+  --text:#1a1a18;--text2:#5f5e5a;--text3:#9a9994;
+  --r:8px;--rl:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);min-height:100vh}
+button{cursor:pointer;font-family:inherit;font-size:13px;border-radius:var(--r);transition:all .15s}
+input,select,textarea{font-family:inherit;font-size:13px;border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;background:var(--surf);color:var(--text);width:100%;outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--green)}
+textarea{resize:vertical;min-height:68px;line-height:1.5}
+/* AUTH */
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.acard{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);padding:38px;width:370px}
+.alogo{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+.alogo-ico{width:34px;height:34px;background:var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px}
+.atitle{font-size:17px;font-weight:600;margin-bottom:3px}
+.asub{font-size:12px;color:var(--text2);margin-bottom:22px}
+.afield{margin-bottom:13px}
+.afield label{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.aerr{color:var(--red);font-size:12px;margin-top:8px;padding:8px;background:var(--red-lt);border-radius:var(--r);display:none}
+/* APP */
+#app{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surf);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.tbl-logo{width:26px;height:26px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
+.nav{background:var(--surf);border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto}
+.ntab{padding:10px 13px;font-size:13px;color:var(--text2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:all .15s}
+.ntab:hover{color:var(--text)}
+.ntab.active{color:var(--green);border-bottom-color:var(--green);font-weight:500}
+.main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%}
+/* METRICS */
+.mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.mc{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);padding:13px 15px}
+.ml{font-size:11px;color:var(--text2);margin-bottom:5px}
+.mv{font-size:22px;font-weight:600;line-height:1}
+.ms{font-size:11px;color:var(--text3);margin-top:2px}
+/* CARD */
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:12px}
+.ch{padding:11px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surf2)}
+.ct{font-size:13px;font-weight:500}
+.cb{padding:14px}
+/* TOOLBAR */
+.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.tb input{flex:1;min-width:150px}
+.tb select{width:auto;min-width:110px}
+.btn{background:var(--surf);color:var(--text);border:1px solid var(--border);padding:7px 13px;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:var(--gray-lt)}
+.bg{background:var(--green);color:#fff;border-color:var(--green)}
+.bg:hover{background:var(--green-dk)}
+.bsm{padding:4px 9px;font-size:12px}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+th{padding:8px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);background:var(--surf2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.03em;overflow:hidden}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surf2)}
+.pgn{display:flex;align-items:center;gap:5px;padding:9px 13px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);justify-content:flex-end}
+.pgb{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r);background:var(--surf);cursor:pointer;font-size:12px}
+.pgb:hover{background:var(--gray-lt)}
+.pgb.ap{background:var(--green);color:#fff;border-color:var(--green)}
+/* BADGES */
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.bo{background:var(--red-lt);color:var(--red)}
+.bc{background:var(--green-lt);color:var(--green-dk)}
+.bp{background:var(--amber-lt);color:var(--amber)}
+.ba{background:var(--blue-lt);color:var(--blue)}
+.bca{background:#EEEDFE;color:#3C3489}
+.bcb{background:var(--blue-lt);color:var(--blue)}
+.bcc{background:var(--gray-lt);color:var(--gray)}
+.rbdg{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;text-transform:uppercase}
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.ff{display:flex;flex-direction:column;gap:4px}
+.ff label{font-size:11px;font-weight:500;color:var(--text2)}
+.ff.full{grid-column:1/-1}
+.fa{display:flex;gap:8px;margin-top:8px}
+.srok{background:var(--green-lt);border-radius:var(--r);padding:7px 10px;font-size:12px;margin-top:4px;display:none}
+.sramb{background:var(--amber-lt);border-radius:var(--r);padding:7px 10px;font-size:12px;margin-top:4px;display:none}
+.ssel{font-size:12px;padding:3px 7px;border-radius:20px;border:1px solid var(--border);background:var(--surf);cursor:pointer;width:auto}
+.loading{text-align:center;padding:36px;color:var(--text3)}
+.empty{text-align:center;padding:36px;color:var(--text3)}
+.toast{position:fixed;bottom:22px;right:22px;background:var(--green);color:#fff;padding:9px 15px;border-radius:var(--r);font-size:13px;z-index:999;display:none}
+.pill{font-size:12px;color:var(--text2);background:var(--gray-lt);padding:3px 9px;border-radius:20px}
+.blgt{background:none;border:1px solid var(--border);color:var(--text2);padding:5px 11px;font-size:12px}
+.blgt:hover{background:var(--gray-lt)}
+@media(max-width:600px){.fg{grid-template-columns:1fr}.mrow{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div id="auth">
+  <div class="acard">
+    <div class="alogo">
+      <div class="alogo-ico">H</div>
+      <div>
+        <div style="font-size:14px;font-weight:600">Hayat Communications</div>
+        <div style="font-size:11px;color:var(--text2)">NOC TT Tracker Portal</div>
+      </div>
+    </div>
+    <div class="atitle">Sign in</div>
+    <div class="asub">Use your portal credentials to continue</div>
+    <div class="afield"><label>Email</label>
+      <input type="email" id="le" placeholder="your@email.com" autocomplete="username"/></div>
+    <div class="afield"><label>Password</label>
+      <input type="password" id="lp" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div id="aerr" class="aerr"></div>
+    <button class="btn bg" style="width:100%;margin-top:4px;justify-content:center" onclick="doLogin()">Sign in</button>
+    <button class="btn" style="width:100%;margin-top:9px;justify-content:center;color:var(--text2)" onclick="doGuest()">Continue as guest (read-only)</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div class="tbl-logo">H</div>
+      <div>
+        <div style="font-size:13px;font-weight:600">Hayat Communications</div>
+        <div style="font-size:11px;color:var(--text3)">NOC TT Tracker Portal</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <span id="upill" class="pill"></span>
+      <span id="urole" class="rbdg"></span>
+      <button class="blgt" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div class="main" id="mc"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SURL='https://dryfnspbsudwluunxloi.supabase.co';
+const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeWZuc3Bic3Vkd2x1dW54bG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzk0NzIsImV4cCI6MjA5NTkxNTQ3Mn0.xXRfuYgCY_5ueOUDtgSINCwpn70xrZL9wGQ8pSHbaIs';
+const sb=supabase.createClient(SURL,SKEY);
+const PP=50;
+let S={user:null,role:'guest',name:'Guest',tab:'dashboard',tickets:[],tpage:1,ttotal:0,tf:{q:'',status:'',region:'',issue:''},lkp:{},staff:[]};
+
+const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
+function xSite(v){
+  if(!v)return'';const s=String(v).trim();
+  const pre=s.split(' : ')[0].split(':')[0].trim();
+  XRE.lastIndex=0;let m=XRE.exec(pre);
+  if(m)return m[1].toUpperCase().slice(0,3)+m[2];
+  XRE.lastIndex=0;m=XRE.exec(s);
+  return m?m[1].toUpperCase().slice(0,3)+m[2]:'';
+}
+
+async function doLogin(){
+  const e=document.getElementById('le').value.trim(),p=document.getElementById('lp').value;
+  const er=document.getElementById('aerr');er.style.display='none';
+  if(!e||!p){showAErr('Please enter email and password.');return;}
+  const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});
+  if(error){showAErr(error.message);return;}
+  await loadProfile(data.user);showApp();
+}
+async function doGuest(){S.user=null;S.role='guest';S.name='Guest';showApp();}
+async function doLogout(){await sb.auth.signOut();S={...S,user:null,role:'guest',name:'Guest'};document.getElementById('app').style.display='none';document.getElementById('auth').style.display='flex';}
+async function loadProfile(u){
+  S.user=u;
+  const{data}=await sb.from('users').select('*').eq('id',u.id).single();
+  if(data){S.role=data.role;S.name=data.display_name;}else{S.role='guest';S.name=u.email;}
+}
+function showAErr(m){const e=document.getElementById('aerr');e.textContent=m;e.style.display='block';}
+
+async function showApp(){
+  document.getElementById('auth').style.display='none';
+  const app=document.getElementById('app');app.style.display='flex';app.style.flexDirection='column';
+  document.getElementById('upill').textContent=S.name;
+  const rb=document.getElementById('urole');rb.textContent=S.role;
+  rb.style.cssText=S.role==='admin'?'background:#EEEDFE;color:#3C3489':S.role==='noc'?'background:var(--blue-lt);color:var(--blue)':S.role==='management'?'background:var(--green-lt);color:var(--green-dk)':'background:var(--gray-lt);color:var(--gray)';
+  await loadLkp();await loadStaff();renderNav();renderTab('dashboard');
+}
+async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');S.lkp={};(data||[]).forEach(r=>{if(!S.lkp[r.category])S.lkp[r.category]=[];S.lkp[r.category].push(r.value);});}
+async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is_active',true).order('name');S.staff=data||[];}
+
+function tabs(){
+  const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'}];
+  if(S.role!=='guest'){t.push({id:'new_ticket',l:'New Ticket'});t.push({id:'cleaner',l:'Site ID Cleaner'});}
+  if(S.role==='admin'||S.role==='management'){t.push({id:'mstaff',l:'Manage Staff'});t.push({id:'mlkp',l:'Manage Dropdowns'});}
+  return t;
+}
+function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>`<button class="ntab${S.tab===t.id?' active':''}" onclick="renderTab('${t.id}')">${t.l}</button>`).join('');}
+function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
+
+// DASHBOARD
+async function rDash(){
+  const mc=document.getElementById('mc');
+  const[tot,opn,pnd,att,cls,reg]=await Promise.all([
+    sb.from('tickets').select('*',{count:'exact',head:true}),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
+    sb.from('tickets').select('region').limit(60000),
+  ]);
+  const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
+  const rc={};(reg.data||[]).forEach(r=>{rc[r.region]=(rc[r.region]||0)+1;});
+  const{data:rec}=await sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10);
+  mc.innerHTML=`
+  <div class="mrow">
+    ${[['Total',T,C>0?Math.round(C/T*100)+'% closed':'All regions','var(--blue)'],
+       ['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--red)'],
+       ['Pending',P,Math.round(P/(T||1)*100)+'% of total','var(--amber)'],
+       ['Attended',A,Math.round(A/(T||1)*100)+'% of total','var(--blue)'],
+       ['Closed',C,Math.round(C/(T||1)*100)+'% closure rate','var(--green)'],
+    ].map(([l,v,s,c])=>`<div class="mc"><div class="ml">${l}</div><div class="mv" style="color:${c}">${v.toLocaleString()}</div><div class="ms">${s}</div></div>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="card"><div class="ch"><div class="ct">Tickets by region</div></div><div class="cb">
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>{const c=rc[r]||0,p=T?Math.round(c/T*100):0;return`<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:500">${r}</span><span style="color:var(--text2)">${c.toLocaleString()} (${p}%)</span></div>
+        <div style="height:5px;background:var(--gray-lt);border-radius:3px"><div style="height:100%;width:${p}%;background:var(--green);border-radius:3px"></div></div>
+      </div>`;}).join('')}
+    </div></div>
+    <div class="card"><div class="ch"><div class="ct">Status breakdown</div></div><div class="cb">
+      ${[['Open',O,'var(--red)'],['Pending',P,'var(--amber)'],['Attended',A,'var(--blue)'],['Closed',C,'var(--green)']].map(([l,v,c])=>{const p=T?Math.round(v/T*100):0;return`<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:500;color:${c}">${l}</span><span style="color:var(--text2)">${v.toLocaleString()} (${p}%)</span></div>
+        <div style="height:5px;background:var(--gray-lt);border-radius:3px"><div style="height:100%;width:${p}%;background:${c};border-radius:3px"></div></div>
+      </div>`;}).join('')}
+    </div></div>
+  </div>
+  <div class="card"><div class="ch"><div class="ct">Recent tickets</div><button class="btn bsm" onclick="renderTab('tickets')">View all →</button></div>
+  <div class="tw"><table><thead><tr>
+    <th style="width:110px">TT Number</th><th style="width:60px">Region</th><th style="width:90px">Date</th>
+    <th style="width:100px">Site (raw)</th><th style="width:90px">Canonical</th>
+    <th style="width:190px">Issue</th><th style="width:75px">Class</th><th style="width:90px">Status</th>
+  </tr></thead><tbody>
+    ${(rec||[]).map(t=>`<tr>
+      <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
+      <td><span class="badge bp">${t.region}</span></td>
+      <td style="color:var(--text2);font-size:12px">${t.ticket_date||'—'}</td>
+      <td style="font-size:12px;color:var(--text2)" title="${t.site_id_raw||''}">${t.site_id_raw||'—'}</td>
+      <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
+      <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+      <td>${cbadge(t.site_class)}</td>
+      <td>${sbadge(t.status)}</td>
+    </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// TICKETS
+async function rTix(){
+  const mc=document.getElementById('mc');const f=S.tf;
+  let q=sb.from('tickets').select('*',{count:'exact'});
+  if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_raw.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
+  if(f.status)q=q.eq('status',f.status);
+  if(f.region)q=q.eq('region',f.region);
+  const fr=(S.tpage-1)*PP,to=fr+PP-1;
+  const{data,count}=await q.order('ticket_date',{ascending:false}).range(fr,to);
+  S.tickets=data||[];S.ttotal=count||0;
+  const ce=S.role==='noc'||S.role==='admin';
+  mc.innerHTML=`
+  <div class="tb">
+    <input type="text" placeholder="Search TT#, site, issue, BO team…" value="${f.q}"
+      oninput="S.tf.q=this.value;S.tpage=1;rTix()">
+    <select onchange="S.tf.status=this.value;S.tpage=1;rTix()">
+      <option value="">All statuses</option>
+      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+    <select onchange="S.tf.region=this.value;S.tpage=1;rTix()">
+      <option value="">All regions</option>
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>${r}</option>`).join('')}
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tpage=1;rTix()">Clear</button>
+    ${ce?'<button class="btn bg" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
+  </div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th style="width:110px">TT Number</th><th style="width:60px">Region</th>
+    <th style="width:90px">Date</th><th style="width:100px">Site (raw)</th>
+    <th style="width:90px">Canonical</th><th style="width:180px">Issue</th>
+    <th style="width:115px">BO Team</th><th style="width:75px">Class</th>
+    <th style="width:105px">Status</th><th style="width:95px">Attended</th>
+  </tr></thead><tbody>
+    ${S.tickets.length===0?`<tr><td colspan="10" class="empty">No tickets found</td></tr>`:
+      S.tickets.map(t=>`<tr>
+        <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
+        <td><span class="badge bp">${t.region}</span></td>
+        <td style="font-size:12px;color:var(--text2)">${t.ticket_date||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)" title="${t.site_id_raw||''}">${t.site_id_raw||'—'}</td>
+        <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
+        <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${t.bo_team||'—'}</td>
+        <td>${cbadge(t.site_class)}</td>
+        <td>${ce?`<select class="ssel" onchange="updSt(${t.id},this.value)">${['Open','Attended','Pending','Closed'].map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}</select>`:sbadge(t.status)}</td>
+        <td style="font-size:12px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
+      </tr>`).join('')}
+  </tbody></table></div>
+  ${pgn(S.ttotal,S.tpage,'S.tpage','rTix')}
+  </div>`;
+}
+
+async function updSt(id,st){
+  const{error}=await sb.from('tickets').update({status:st,updated_by:S.name}).eq('id',id);
+  if(error){toast('Error updating status',1);return;}
+  toast('Status updated');
+  const t=S.tickets.find(x=>x.id===id);if(t)t.status=st;
+}
+
+// NEW TICKET
+function rNew(){
+  const mc=document.getElementById('mc');
+  const bo=S.staff.filter(s=>s.role_type==='bo_team').map(s=>`<option>${s.name}</option>`).join('');
+  const tc=S.staff.filter(s=>s.role_type==='tech').map(s=>`<option>${s.name}</option>`).join('');
+  const iss=(S.lkp.issue_type||[]).map(i=>`<option>${i}</option>`).join('');
+  mc.innerHTML=`
+  <div class="card" style="max-width:840px">
+    <div class="ch"><div class="ct">Create new ticket</div></div>
+    <div class="cb">
+      <div class="fg">
+        <div class="ff"><label>TT / IM Number *</label><input type="text" id="f1" placeholder="e.g. IM8400001"></div>
+        <div class="ff"><label>Region *</label><select id="f2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select></div>
+        <div class="ff"><label>Date *</label><input type="date" id="f3"></div>
+        <div class="ff"><label>VOPS Reference</label><input type="text" id="f4" placeholder="Optional"></div>
+        <div class="ff full">
+          <label>Site ID (raw) *</label>
+          <input type="text" id="f5" placeholder="e.g. DXBL3164-HUB or DXB1568" oninput="rSite(this.value)">
+          <div id="srok" class="srok"></div><div id="sramb" class="sramb"></div>
+        </div>
+        <div class="ff"><label>Canonical Site ID</label><input type="text" id="f6" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff"><label>Site Class</label><input type="text" id="f7" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff"><label>Site Type</label><input type="text" id="f8" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff"><label>Issue Type *</label><select id="f9"><option value="">Select issue</option>${iss}</select></div>
+        <div class="ff"><label>BO Team</label><select id="f10"><option value="">Select</option>${bo}</select></div>
+        <div class="ff"><label>Tech Name</label><select id="f11"><option value="">Select</option>${tc}</select></div>
+        <div class="ff"><label>Date Attended</label><input type="date" id="f12"></div>
+        <div class="ff"><label>Outage Start</label><input type="datetime-local" id="f13"></div>
+        <div class="ff"><label>Battery Status</label><select id="f14"><option value="">Select</option>${(S.lkp.battery_status||[]).map(b=>`<option>${b}</option>`).join('')}</select></div>
+        <div class="ff"><label>Status</label><select id="f15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div class="ff full"><label>Battery Remarks</label><input type="text" id="f16" placeholder="Optional"></div>
+        <div class="ff full"><label>Remarks</label><textarea id="f17" placeholder="General remarks…"></textarea></div>
+        <div class="ff full"><label>Resolution</label><textarea id="f18" placeholder="Resolution details…"></textarea></div>
+        <div class="ff full"><label>Closure Remarks</label><textarea id="f19" placeholder="Closure notes…"></textarea></div>
+      </div>
+      <div class="fa">
+        <button class="btn bg" onclick="subTix()">Submit Ticket</button>
+        <button class="btn" onclick="renderTab('tickets')">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('f3').valueAsDate=new Date();
+}
+
+async function rSite(raw){
+  const can=xSite(raw);
+  document.getElementById('f6').value=can;
+  const ok=document.getElementById('srok'),amb=document.getElementById('sramb');
+  ok.style.display='none';amb.style.display='none';
+  if(!can)return;
+  const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
+  let site=null;
+  for(const c of cols){const{data}=await sb.from('sites').select('*').eq(c,can).eq('is_active',true).limit(1);if(data&&data.length){site=data[0];break;}}
+  if(site){
+    document.getElementById('f6').value=site.site_id;
+    document.getElementById('f7').value=site.site_class||'';
+    document.getElementById('f8').value=site.site_type||'';
+    ok.innerHTML=`&#10003; Matched: <strong>${site.site_id}</strong> &mdash; ${site.site_class||''} &mdash; ${site.site_type||''} &mdash; ${site.region||''}`;
+    ok.style.display='block';
+  }else{
+    amb.innerHTML=`&#9888; <strong>${can}</strong> not found in MDB &mdash; will be saved as unverified`;
+    amb.style.display='block';
+    document.getElementById('f7').value='';document.getElementById('f8').value='';
+  }
+}
+
+async function subTix(){
+  const tt=document.getElementById('f1').value.trim();
+  const rg=document.getElementById('f2').value;
+  const iss=document.getElementById('f9').value;
+  if(!tt||!rg||!iss){toast('TT Number, Region and Issue Type are required',1);return;}
+  const{error}=await sb.from('tickets').insert([{
+    tt_number:tt,region:rg,
+    ticket_date:document.getElementById('f3').value||null,
+    vops:document.getElementById('f4').value||null,
+    site_id_raw:document.getElementById('f5').value.trim()||null,
+    site_id_canonical:document.getElementById('f6').value.trim()||null,
+    site_class:document.getElementById('f7').value||null,
+    site_type:document.getElementById('f8').value||null,
+    tt_issue:iss,
+    bo_team:document.getElementById('f10').value||null,
+    tech_name:document.getElementById('f11').value||null,
+    tt_date_attended:document.getElementById('f12').value||null,
+    outage_start:document.getElementById('f13').value||null,
+    battery_status:document.getElementById('f14').value||null,
+    status:document.getElementById('f15').value,
+    battery_remarks:document.getElementById('f16').value||null,
+    remarks:document.getElementById('f17').value||null,
+    resolution:document.getElementById('f18').value||null,
+    closure_remarks:document.getElementById('f19').value||null,
+    opened_by:S.name,updated_by:S.name,
+  }]);
+  if(error){toast('Error: '+error.message,1);return;}
+  toast('Ticket submitted');renderTab('tickets');
+}
+
+// CLEANER
+function rClean(){
+  document.getElementById('mc').innerHTML=`
+  <div style="max-width:900px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="card"><div class="ch"><div class="ct">Raw site IDs</div></div><div class="cb">
+        <textarea id="ci" style="min-height:150px" placeholder="Paste raw values, one per line&#10;e.g. DXBL3164-HUB-Nr-Hudaybiyah&#10;SHJ2632_HUB : High shelter temp"></textarea>
+      </div></div>
+      <div class="card"><div class="ch"><div class="ct">MDB reference (optional)</div></div><div class="cb">
+        <textarea id="cm" style="min-height:150px" placeholder="Leave blank to use Supabase MDB (recommended)&#10;Or paste known Site IDs, one per line"></textarea>
+      </div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn bg" onclick="runCl()">Clean site IDs</button>
+      <button class="btn" onclick="document.getElementById('ci').value='';document.getElementById('cr').innerHTML=''">Clear</button>
+    </div>
+    <div id="cr"></div>
+  </div>`;
+}
+
+async function runCl(){
+  const lines=(document.getElementById('ci').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length)return;
+  const cr=document.getElementById('cr');cr.innerHTML='<div class="loading">Resolving against MDB…</div>';
+  const rows=[];
+  for(const raw of lines){
+    const can=xSite(raw);let region='',sc='',st='',ms='no mdb';
+    if(can){
+      const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
+      let site=null;
+      for(const c of cols){const{data}=await sb.from('sites').select('*').eq(c,can).limit(1);if(data&&data.length){site=data[0];break;}}
+      if(site){region=site.region;sc=site.site_class;st=site.site_type;ms='verified';}
+      else ms='unverified';
+    }
+    rows.push({raw,can,region,sc,st,ms});
+  }
+  const cl=rows.filter(r=>r.can).length,uv=rows.filter(r=>r.ms==='unverified').length,nm=rows.filter(r=>!r.can).length;
+  cr.innerHTML=`
+  <div class="mrow" style="margin-bottom:12px">
+    <div class="mc"><div class="ml">Total</div><div class="mv" style="color:var(--blue)">${rows.length}</div></div>
+    <div class="mc"><div class="ml">Cleaned</div><div class="mv" style="color:var(--green)">${cl}</div></div>
+    <div class="mc"><div class="ml">Unverified</div><div class="mv" style="color:var(--amber)">${uv}</div></div>
+    <div class="mc"><div class="ml">No match</div><div class="mv" style="color:var(--red)">${nm}</div></div>
+  </div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th style="width:28px">#</th><th style="width:220px">Raw input</th>
+    <th style="width:95px">Canonical</th><th style="width:60px">Region</th>
+    <th style="width:75px">Class</th><th style="width:115px">Site type</th><th style="width:105px">MDB status</th>
+  </tr></thead><tbody>
+    ${rows.map((r,i)=>`<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td style="font-family:monospace;font-size:11px" title="${r.raw}">${r.raw}</td>
+      <td style="font-weight:500;color:${r.can?'var(--green)':'var(--text3)'}">${r.can||'—'}</td>
+      <td>${r.region?`<span class="badge bp">${r.region}</span>`:'—'}</td>
+      <td>${cbadge(r.sc)}</td>
+      <td style="font-size:12px;color:var(--text2)">${r.st||'—'}</td>
+      <td style="font-size:12px">${r.ms==='verified'?'<span style="color:var(--green)">&#10003; Verified</span>':r.ms==='unverified'?'<span style="color:var(--amber)">&#9888; Not in MDB</span>':'—'}</td>
+    </tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="card" style="margin-top:12px"><div class="ch"><div class="ct">Cleaned IDs (copy-ready)</div>
+    <button class="btn bsm" onclick="navigator.clipboard.writeText(document.getElementById('cout').value).then(()=>toast('Copied!'))">Copy</button>
+  </div><div class="cb">
+    <textarea id="cout" readonly style="min-height:70px;background:var(--surf2)">${rows.map(r=>r.can||'').join('\n')}</textarea>
+  </div></div>`;
+}
+
+// MANAGE STAFF
+async function rStaff(){
+  const{data:st}=await sb.from('staff').select('*').order('name');
+  const mc=document.getElementById('mc');
+  mc.innerHTML=`
+  <div style="max-width:680px">
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Add staff member</div></div><div class="cb">
+        <div class="fg">
+          <div class="ff"><label>Full name *</label><input type="text" id="sn" placeholder="e.g. Shahzad Tariq"></div>
+          <div class="ff"><label>Role type *</label><select id="sr"><option value="bo_team">BO Team Lead</option><option value="tech">Field Engineer</option></select></div>
+          <div class="ff"><label>Primary region</label><select id="sg"><option value="">All regions</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select></div>
+        </div>
+        <div class="fa"><button class="btn bg" onclick="addSt()">Add staff member</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Staff list (${(st||[]).length})</div></div>
+    <div class="tw"><table><thead><tr><th>Name</th><th>Role</th><th>Region</th><th>Status</th><th style="width:90px">Action</th></tr></thead><tbody>
+      ${(st||[]).map(s=>`<tr>
+        <td style="font-weight:500">${s.name}</td>
+        <td>${s.role_type==='bo_team'?'BO Team Lead':'Field Engineer'}</td>
+        <td>${s.primary_region||'All'}</td>
+        <td>${s.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
+        <td><button class="btn bsm" onclick="togSt(${s.id},${s.is_active})">${s.is_active?'Deactivate':'Activate'}</button></td>
+      </tr>`).join('')}
+    </tbody></table></div></div>
+  </div>`;
+}
+async function addSt(){
+  const n=document.getElementById('sn').value.trim(),r=document.getElementById('sr').value,g=document.getElementById('sg').value||null;
+  if(!n){toast('Name is required',1);return;}
+  const{error}=await sb.from('staff').insert([{name:n,role_type:r,primary_region:g}]);
+  if(error){toast('Error: '+error.message,1);return;}
+  toast('Staff member added');await loadStaff();rStaff();
+}
+async function togSt(id,cur){await sb.from('staff').update({is_active:!cur}).eq('id',id);await loadStaff();rStaff();}
+
+// MANAGE LOOKUPS
+async function rLkp(){
+  const{data}=await sb.from('lookup_values').select('*').order('category').order('sort_order');
+  const cats={};(data||[]).forEach(r=>{if(!cats[r.category])cats[r.category]=[];cats[r.category].push(r);});
+  const mc=document.getElementById('mc');
+  mc.innerHTML=`
+  <div style="max-width:680px">
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Add dropdown value</div></div><div class="cb">
+        <div class="fg">
+          <div class="ff"><label>Category *</label><select id="lc">${Object.keys(cats).map(c=>`<option>${c}</option>`).join('')}<option value="__new">+ New category…</option></select></div>
+          <div class="ff"><label>Value *</label><input type="text" id="lv" placeholder="e.g. NEW ISSUE TYPE"></div>
+        </div>
+        <div class="fa"><button class="btn bg" onclick="addLv()">Add value</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">All dropdown values</div></div>
+    <div class="tw"><table><thead><tr><th>Category</th><th>Value</th><th>Status</th><th style="width:80px">Action</th></tr></thead><tbody>
+      ${(data||[]).map(r=>`<tr>
+        <td style="color:var(--text2);font-size:12px">${r.category}</td>
+        <td style="font-weight:500">${r.value}</td>
+        <td>${r.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
+        <td><button class="btn bsm" onclick="togLv(${r.id},${r.is_active})">${r.is_active?'Disable':'Enable'}</button></td>
+      </tr>`).join('')}
+    </tbody></table></div></div>
+  </div>`;
+}
+async function addLv(){
+  let c=document.getElementById('lc').value;const v=document.getElementById('lv').value.trim();
+  if(c==='__new'){c=prompt('Enter new category name:');if(!c)return;}
+  if(!v){toast('Value is required',1);return;}
+  const{error}=await sb.from('lookup_values').insert([{category:c,value:v}]);
+  if(error){toast('Error: '+error.message,1);return;}
+  toast('Value added');await loadLkp();rLkp();
+}
+async function togLv(id,cur){await sb.from('lookup_values').update({is_active:!cur}).eq('id',id);await loadLkp();rLkp();}
+
+// HELPERS
+function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
+function cbadge(c){if(!c)return'—';const m={'Class A':'bca','Class B':'bcb','Class C':'bcc'};return`<span class="badge ${m[c]||'bcc'}">${c}</span>`;}
+function pgn(total,page,pk,fn){
+  const tp=Math.ceil(total/PP);if(tp<=1)return`<div class="pgn"><span>${total.toLocaleString()} records</span></div>`;
+  const s=Math.max(1,page-2),e=Math.min(tp,page+2);
+  let h=`<span>${total.toLocaleString()} records &nbsp;</span>`;
+  h+=`<div class="pgb" onclick="${pk}=${Math.max(1,page-1)};${fn}()">&#8249;</div>`;
+  for(let i=s;i<=e;i++)h+=`<div class="pgb${i===page?' ap':''}" onclick="${pk}=${i};${fn}()">${i}</div>`;
+  h+=`<div class="pgb" onclick="${pk}=${Math.min(tp,page+1)};${fn}()">&#8250;</div>`;
+  return`<div class="pgn">${h}</div>`;
+}
+function toast(m,err=0){const t=document.getElementById('toast');t.textContent=m;t.style.background=err?'var(--red)':'var(--green)';t.style.display='block';setTimeout(()=>t.style.display='none',2800);}
+
+// AUTO SESSION CHECK
+(async()=>{const{data:{session}}=await sb.auth.getSession();if(session){await loadProfile(session.user);showApp();}})();
+</script>
+</body>
+</html>
