@@ -370,20 +370,35 @@ async function rKPI(){
   const mc=document.getElementById('mc');
   mc.innerHTML='<div class="loading">Building KPI report…</div>';
 
-  const[tot,opn,pnd,att,cls,urgRes,classRes,siteRes,ageRes]=await Promise.all([
+  // All counts done server-side — no row fetching for aggregates
+  const[tot,opn,pnd,att,cls,
+    caTotal,caOpen,caClosed,
+    cbTotal,cbOpen,cbClosed,
+    ccTotal,ccOpen,ccClosed,
+    urgRes,repRes,ageRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
-    // Urgent: Class A+B with AC/power issues still open
+    // Class A counts
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').eq('status','Closed'),
+    // Class B counts
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').eq('status','Closed'),
+    // Class C counts
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
+    // Urgent: Class A+B open/pending — fetch rows for display
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
       .in('site_class',['Class A','Class B']).in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
-    // Class breakdown
-    sb.from('tickets').select('site_class,status').limit(60000),
-    // Repeated sites
-    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(60000),
-    // Aging: open tickets oldest first
+    // Repeated sites — top 15 by count using rpc or fetch all canonicals
+    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
+    // Aging: oldest open tickets
     sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region')
       .in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
   ]);
@@ -395,22 +410,20 @@ async function rKPI(){
   // Urgent tickets (Class A/B + AC/Power issues)
   const urgTix=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class));
 
-  // Class breakdown counts
-  const classCounts={'Class A':{total:0,open:0,closed:0},'Class B':{total:0,open:0,closed:0},'Class C':{total:0,open:0,closed:0}};
-  (classRes.data||[]).forEach(r=>{
-    const c=r.site_class;if(!c||!classCounts[c])return;
-    classCounts[c].total++;
-    if(r.status==='Closed')classCounts[c].closed++;
-    else classCounts[c].open++;
-  });
+  // Class breakdown — from server-side counts
+  const classCounts={
+    'Class A':{total:caTotal.count||0,open:caOpen.count||0,closed:caClosed.count||0},
+    'Class B':{total:cbTotal.count||0,open:cbOpen.count||0,closed:cbClosed.count||0},
+    'Class C':{total:ccTotal.count||0,open:ccOpen.count||0,closed:ccClosed.count||0},
+  };
 
-  // Repeated sites (site_id_canonical appearing >1 time)
+  // Repeated sites
   const siteCounts={};
-  (siteRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
+  (repRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
   const repeated=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,15);
   const maxRep=repeated.length?repeated[0][1]:1;
 
-  // Aging: days since ticket_date
+  // Aging
   const now=new Date();
   const agingTix=(ageRes.data||[]).map(t=>{
     const d=t.ticket_date?Math.floor((now-new Date(t.ticket_date))/86400000):0;
@@ -841,9 +854,9 @@ async function addUsr(){
   const name=document.getElementById('un').value.trim();
   const role=document.getElementById('ur').value;
   if(!id||!name){toast('UUID and Display Name are required',1);return;}
-  const{error}=await sb.from('users').insert([{id,display_name:name,role}]);
+  const{error}=await sb.rpc('create_portal_user',{p_id:id,p_display_name:name,p_role:role});
   if(error){toast('Error: '+error.message,1);return;}
-  toast('User added');rStaff();
+  toast('User added successfully');rStaff();
 }
 async function togUsr(id,cur){
   await sb.from('users').update({is_active:!cur}).eq('id',id);
