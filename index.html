@@ -318,7 +318,7 @@ function renderSidebar(){
   if(existing)existing.remove();
   const nav=document.createElement('div');
   nav.id='sidebar-nav';nav.className='sb-nav';
-  const tabs=getTabs();
+  const tabs=tabs_fn();
   const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',kpi:'ti-chart-bar',new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',profile:'ti-user',mstaff:'ti-users',mlkp:'ti-adjustments'};
   const tabSections={dashboard:'Main',tickets:'Main',kpi:'Main',new_ticket:'Operations',cleaner:'Operations',bulk:'Operations',profile:'Account',mstaff:'Admin',mlkp:'Admin'};
   let lastSection='';
@@ -354,7 +354,7 @@ async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').
 async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is_active',true).order('name');S.staff=data||[];}
 
 // NAV
-function tabs(){
+function tabs_fn(){
   const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'},{id:'kpi',l:'KPI Report'}];
   if(S.role!=='guest'){
     t.push({id:'new_ticket',l:'New Ticket'});
@@ -368,7 +368,7 @@ function tabs(){
   }
   return t;
 }
-function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>
+function renderNav(){document.getElementById('nav').innerHTML=tabs_fn().map(t=>
   `<button class="ntab${S.tab===t.id?' active':''}" onclick="renderTab('${t.id}')">${t.l}</button>`).join('');}
 function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
