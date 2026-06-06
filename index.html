@@ -912,17 +912,16 @@ async function rTix(){
   const ce=S.role==='noc'||S.role==='management'||S.role==='admin';
 
   const cols=[
-    {id:'tt_number',l:'TT Number',w:'100px'},
+    {id:'tt_number',l:'TT Number',w:'105px'},
     {id:'region',l:'Region',w:'55px'},
     {id:'ticket_date',l:'Date',w:'85px'},
-    {id:'site_id_raw',l:'Site (raw)',w:'90px'},
-    {id:'site_id_canonical',l:'Corrected ID',w:'95px'},
-    {id:'tt_issue',l:'Issue',w:'160px'},
+    {id:'site_id_canonical',l:'Corrected ID',w:'90px'},
+    {id:'tt_issue',l:'Issue',w:'170px'},
     {id:'bo_team',l:'BO Team',w:'100px'},
-    {id:'site_class',l:'Class',w:'70px'},
-    {id:'status',l:'Status',w:'100px'},
-    {id:'tt_date_attended',l:'Attended',w:'85px'},
-    {id:'updated_by',l:'Updated by',w:'95px'},
+    {id:'site_class',l:'Class',w:'65px'},
+    {id:'status',l:'Status',w:'95px'},
+    {id:'tt_date_attended',l:'Attended',w:'80px'},
+    {id:'updated_by',l:'Updated by',w:'90px'},
   ];
 
   mc.innerHTML=`
@@ -969,7 +968,7 @@ async function rTix(){
     }).join('')}
     <th style="width:55px;cursor:default;text-align:center">Action</th>
   </tr></thead><tbody>
-    ${S.tickets.length===0?`<tr><td colspan="12" class="empty">No tickets found</td></tr>`:
+    ${S.tickets.length===0?`<tr><td colspan="11" class="empty">No tickets found</td></tr>`:
       S.tickets.map(t=>`<tr>
         <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
         <td><span class="badge bp">${t.region}</span></td>
@@ -1387,7 +1386,13 @@ async function dlTix(){
 
 // EDIT TICKET PANEL
 function editTicket(id){
-  const t=S.tickets.find(x=>x.id===id);
+  // Fetch ticket from Supabase directly if not in local cache
+  let t=S.tickets.find(x=>String(x.id)===String(id));
+  if(!t){
+    sb.from('tickets').select('*').eq('id',id).single().then(({data})=>{
+      if(data){S.tickets.push(data);editTicket(id);}else{toast('Ticket not found',1);}
+    });return;
+  }
   if(!t){toast('Ticket not found',1);return;}
   // Remove existing panel if open
   const existing=document.getElementById('edit-panel');
