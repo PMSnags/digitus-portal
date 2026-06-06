@@ -848,10 +848,10 @@ async function togLv(id,cur){await sb.from('lookup_values').update({is_active:!c
 
 // DOWNLOAD CSV
 async function dlTix(){
-  toast('Preparing download…');
+  toast('Preparing download...');
   const f=S.tf;const srt=S.tsort;
   let q=sb.from('tickets').select('*');
-  if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_raw.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
+  if(f.q)q=q.or('tt_number.ilike.%'+f.q+'%,site_id_raw.ilike.%'+f.q+'%,site_id_canonical.ilike.%'+f.q+'%,tt_issue.ilike.%'+f.q+'%,bo_team.ilike.%'+f.q+'%');
   if(f.status)q=q.eq('status',f.status);
   if(f.region)q=q.eq('region',f.region);
   const{data}=await q.order(srt.col,{ascending:srt.dir==='asc'}).limit(100000);
@@ -860,19 +860,28 @@ async function dlTix(){
     'site_type','site_class','tt_issue','bo_team','tech_name','tt_date_attended',
     'outage_start','battery_status','battery_remarks','remarks','resolution',
     'closure_remarks','status','opened_by','updated_by','created_at','updated_at'];
-  const esc=v=>{if(v==null)return'';const s=String(v);return s.includes(',')||s.includes('"')||s.includes('
-')?`"${s.replace(/"/g,'""')}"`:s;};
-  const rows=[cols.join(','),...data.map(r=>cols.map(c=>esc(r[c])).join(','))];
-  const blob=new Blob([rows.join('
+  function csvEsc(v){
+    if(v==null)return'';
+    var s=String(v);
+    if(s.indexOf(',')>-1||s.indexOf('"')>-1||s.indexOf('
+')>-1){
+      return'"'+s.replace(/"/g,'""')+'"';
+    }
+    return s;
+  }
+  var rows=[cols.join(',')];
+  data.forEach(function(r){rows.push(cols.map(function(c){return csvEsc(r[c]);}).join(','));});
+  var blob=new Blob([rows.join('
 ')],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const now=new Date();
-  const stamp=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-  a.href=url;a.download=`TT_Export_${f.region||'ALL'}_${f.status||'ALL'}_${stamp}.csv`;
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var now=new Date();
+  var stamp=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+  a.href=url;
+  a.download='TT_Export_'+(f.region||'ALL')+'_'+(f.status||'ALL')+'_'+stamp+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast(`Downloaded ${data.length.toLocaleString()} rows`);
+  toast('Downloaded '+data.length.toLocaleString()+' rows');
 }
 
 // HELPERS
