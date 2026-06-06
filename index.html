@@ -625,40 +625,57 @@ async function rKPI(){
   mc.innerHTML='<div class="loading">Building KPI report…</div>';
 
   // All counts done server-side — no row fetching for aggregates
+  // Build 6-month date ranges
+  const now6=new Date();
+  const months6=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now6.getFullYear(),now6.getMonth()-i,1);
+    const start=d.toISOString().slice(0,7)+'-01';
+    const end=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10);
+    months6.push({label:d.toLocaleString('en-GB',{month:'short',year:'2-digit'}),start,end});
+  }
+
   const[tot,opn,pnd,att,cls,
     caTotal,caOpen,caClosed,
     cbTotal,cbOpen,cbClosed,
     ccTotal,ccOpen,ccClosed,
-    repRes,ageRes]=await Promise.all([
+    repRes,repIssueRes,ageRes,
+    ...monthRes]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
-    // Class A counts
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').eq('status','Closed'),
-    // Class B counts
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').eq('status','Closed'),
-    // Class C counts
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
-
-    // Repeated sites — top 15 by count using rpc or fetch all canonicals
+    // Repeated sites by site ID
     sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
-    // Aging: oldest open tickets
-    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region')
-      .in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
+    // Repeated by site + issue combo
+    sb.from('tickets').select('site_id_canonical,tt_issue').not('site_id_canonical','is',null).not('tt_issue','is',null).limit(100000),
+    // Aging
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
+    // 6 months — total tickets per month
+    ...months6.map(m=>sb.from('tickets').select('*',{count:'exact',head:true}).gte('ticket_date',m.start).lte('ticket_date',m.end)),
+    // 6 months — closed tickets per month
+    ...months6.map(m=>sb.from('tickets').select('*',{count:'exact',head:true}).gte('ticket_date',m.start).lte('ticket_date',m.end).eq('status','Closed')),
   ]);
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
-  const cA=caRes.count||0,cB=cbRes.count||0,cC=ccRes.count||0;
   const resRate=T>0?Math.round(C/T*100):0;
   const openRate=T>0?Math.round((O+P)/T*100):0;
+
+  // Monthly data — first 6 are totals, next 6 are closed
+  const monthTotals=monthRes.slice(0,6).map((r,i)=>({label:months6[i].label,total:r.count||0}));
+  const monthClosed=monthRes.slice(6,12).map(r=>r.count||0);
+  const monthData=monthTotals.map((m,i)=>({...m,closed:monthClosed[i],rate:m.total>0?Math.round(monthClosed[i]/m.total*100):0}));
+  const maxMonthTotal=Math.max(...monthData.map(m=>m.total),1);
 
 
   // Class breakdown — from server-side counts
@@ -668,11 +685,24 @@ async function rKPI(){
     'Class C':{total:ccTotal.count||0,open:ccOpen.count||0,closed:ccClosed.count||0},
   };
 
-  // Repeated sites
+  // Repeated sites by site ID
   const siteCounts={};
   (repRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
   const repeated=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,15);
   const maxRep=repeated.length?repeated[0][1]:1;
+
+  // Repeated by site + issue combination
+  const issueCombo={};
+  (repIssueRes.data||[]).forEach(r=>{
+    if(r.site_id_canonical&&r.tt_issue){
+      const key=r.site_id_canonical+'||'+r.tt_issue;
+      issueCombo[key]=(issueCombo[key]||0)+1;
+    }
+  });
+  const topIssueCombo=Object.entries(issueCombo).filter(([,c])=>c>1)
+    .sort((a,b)=>b[1]-a[1]).slice(0,10)
+    .map(([k,c])=>{const[site,issue]=k.split('||');return{site,issue,count:c};});
+  const maxCombo=topIssueCombo.length?topIssueCombo[0].count:1;
 
   // Aging
   const now=new Date();
@@ -683,6 +713,66 @@ async function rKPI(){
   const maxAge=agingTix.length?agingTix[0].days:1;
 
   mc.innerHTML=`
+  <!-- 6-Month Trend Chart -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><div class="ct">6-month ticket &amp; resolution trend</div>
+      <span style="font-size:11px;color:var(--text2)">${monthData[0].label} &rarr; ${monthData[5].label}</span>
+    </div>
+    <div class="cb" style="padding:16px 16px 8px">
+      <div style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-bottom:8px">
+        ${monthData.map(m=>{
+          const tPct=Math.round(m.total/maxMonthTotal*100);
+          const cPct=m.total>0?Math.round(m.closed/maxMonthTotal*100):0;
+          return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%">
+            <div style="font-size:9px;color:var(--text2);font-weight:500">${m.rate}%</div>
+            <div style="flex:1;width:100%;display:flex;align-items:flex-end;gap:2px;position:relative">
+              <div style="flex:1;background:var(--surf2);border-radius:3px 3px 0 0;height:${tPct}%;min-height:2px;position:relative" title="${m.total.toLocaleString()} total">
+                <div style="position:absolute;bottom:0;left:0;right:0;background:var(--green);border-radius:3px 3px 0 0;height:${cPct?Math.round(cPct/tPct*100):0}%;min-height:${m.closed>0?'2px':'0'}" title="${m.closed.toLocaleString()} closed"></div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:6px">
+        ${monthData.map(m=>`<div style="flex:1;text-align:center;font-size:10px;color:var(--text2)">${m.label}</div>`).join('')}
+      </div>
+      <div style="display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">
+          <div style="width:10px;height:10px;background:var(--surf2);border-radius:2px;border:0.5px solid var(--border)"></div> Total tickets (bar)
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">
+          <div style="width:10px;height:10px;background:var(--green);border-radius:2px"></div> Closed (inner bar)
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">
+          <strong>%</strong> Resolution rate that month
+        </div>
+        <div style="margin-left:auto;font-size:11px;color:var(--text2)">Peak: ${Math.max(...monthData.map(m=>m.total)).toLocaleString()} tickets (${monthData.find(m=>m.total===Math.max(...monthData.map(x=>x.total)))||{label:''}.label})</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Repeated site + issue combinations -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><div class="ct">Top repeated site &amp; issue combinations</div>
+      <span style="font-size:11px;color:var(--text2)">Same site appearing with same issue type</span>
+    </div>
+    <div class="cb" style="padding:0">
+      ${topIssueCombo.length===0?'<div style="padding:14px;font-size:12px;color:var(--text2)">No repeated combinations found</div>':
+        topIssueCombo.map((r,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:0.5px solid var(--border);${i===0?'background:var(--surf2)':''}">
+          <div style="font-size:11px;font-weight:500;width:20px;color:var(--text2);flex-shrink:0">${i+1}</div>
+          <div style="font-weight:500;font-size:12px;width:70px;flex-shrink:0">${r.site}</div>
+          <div style="flex:1">
+            <div style="height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${Math.round(r.count/maxCombo*100)}%;background:var(--pri);border-radius:3px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.issue}</div>
+          </div>
+          <div style="font-size:13px;font-weight:500;color:var(--pri);width:32px;text-align:right;flex-shrink:0">${r.count}×</div>
+        </div>`).join('')}
+    </div>
+  </div>
+
   <!-- KPI Summary Row -->
   <div class="mrow">
     <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
