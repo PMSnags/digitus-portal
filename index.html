@@ -463,8 +463,9 @@ async function rDash(){
 
   mc.innerHTML=`
   <style>
-    .dash-shell{display:grid;grid-template-columns:1fr 1fr 1.5fr;grid-template-rows:auto 1fr 160px;gap:10px;height:calc(100vh - 140px)}
+    .dash-shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:auto 1fr auto;gap:10px;height:calc(100vh - 140px)}
     .dash-stat-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .dash-right-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
     .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:background .12s}
     .dstat:hover{background:var(--surf2)}
     .dstat-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
@@ -510,7 +511,8 @@ async function rDash(){
       </div>
     </div>
 
-    <div class="dpanel">
+    <div class="dash-right-col">
+<div class="dpanel" style="flex:2;min-height:0">
       <div class="dpanel-head">
         <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent &amp; aging</div>
         <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">KPI &rarr;</button>
@@ -529,7 +531,7 @@ async function rDash(){
       </div>
     </div>
 
-    <div class="dpanel">
+    <div class="dpanel" style="flex:1;min-height:0">
       <div class="dpanel-head">
         <div class="dpanel-title"><span class="live-dot"></span>Live ticket feed</div>
         <span style="font-size:10px;color:var(--text2)">newest first</span>
@@ -538,8 +540,10 @@ async function rDash(){
         ${rec.map(t=>ticketCard(t,false)).join('')}
       </div>
     </div>
+    </div>
 
-    <div class="dpanel" style="flex-direction:row;align-items:stretch">
+
+    <div class="dpanel" style="flex-direction:row;align-items:stretch;grid-column:1/-1">
       <div style="flex:1;padding:12px;border-right:0.5px solid var(--border)">
         <div style="font-size:11px;font-weight:500;margin-bottom:10px">Resolution rate</div>
         <div style="font-size:32px;font-weight:500;color:${C>0?'var(--green)':'var(--pri)'};letter-spacing:-.5px;margin-bottom:6px">${T>0?Math.round(C/T*100):0}%</div>
@@ -715,11 +719,11 @@ async function rKPI(){
   mc.innerHTML=`
   <!-- 6-Month SVG Line Chart -->
   <div class="card" style="margin-bottom:12px;background:var(--dark);border-color:var(--dark3)">
-    <div class="ch" style="background:var(--dark2);border-color:var(--dark3)">
-      <div class="ct" style="color:#e5e5e5">Monthly resolution trend &nbsp;<span style="font-size:11px;color:#666;font-weight:400">${monthData[0].label} &ndash; ${monthData[5].label}</span></div>
+    <div class="ch" style="background:#1a1a1a;border-color:#222">
+      <div class="ct" style="color:#fff;font-size:13px;font-weight:500">Monthly resolution trend &nbsp;<span style="font-size:11px;color:#666;font-weight:400">${monthData[0].label} &ndash; ${monthData[5].label}</span></div>
       <div style="display:flex;gap:14px">
-        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><div style="width:16px;height:2px;background:#C8102E;border-radius:1px"></div>Total tickets</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><div style="width:16px;height:2px;background:#059669;border-radius:1px"></div>Closed</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa"><div style="width:16px;height:2px;background:#C8102E;border-radius:1px"></div>Total tickets</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa"><div style="width:16px;height:2px;background:#059669;border-radius:1px"></div>Closed</div>
       </div>
     </div>
     <div style="padding:16px 20px 12px;background:var(--dark)">
@@ -747,8 +751,8 @@ async function rKPI(){
           </defs>
           ${yTicks.map(v=>{
             const y=yPos(v);
-            return`<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#2a2a2a" stroke-width="1"/>
-            <text x="${PAD_L-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#555">${v>=1000?Math.round(v/1000)+'k':v}</text>`;
+            return`<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#333" stroke-width="1"/>
+            <text x="${PAD_L-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#888">${v>=1000?Math.round(v/1000)+'k':v}</text>`;
           }).join('')}
           <polygon points="${tArea}" fill="url(#tGrad)"/>
           <polygon points="${cArea}" fill="url(#cGrad)"/>
@@ -757,10 +761,10 @@ async function rKPI(){
           ${monthData.map((m,i)=>`
             <circle cx="${xPos(i)}" cy="${yPos(m.total)}" r="3" fill="#C8102E"/>
             <circle cx="${xPos(i)}" cy="${yPos(m.closed)}" r="3" fill="#059669"/>
-            <text x="${xPos(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#555">${m.label}</text>
-            <text x="${xPos(i)}" y="${yPos(m.total)-7}" text-anchor="middle" font-size="8" fill="#888">${m.total>=1000?(m.total/1000).toFixed(1)+'k':m.total}</text>
+            <text x="${xPos(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#999">${m.label}</text>
+            <text x="${xPos(i)}" y="${yPos(m.total)-7}" text-anchor="middle" font-size="8" fill="#bbb">${m.total>=1000?(m.total/1000).toFixed(1)+'k':m.total}</text>
           `).join('')}
-          <text x="${xPos(monthData.findIndex(m=>m.rate===Math.max(...monthData.map(x=>x.rate))))}" y="${yPos(monthData.find(m=>m.rate===Math.max(...monthData.map(x=>x.rate))).closed)-16}" text-anchor="middle" font-size="8" fill="#059669">Best: ${Math.max(...monthData.map(m=>m.rate))}%</text>
+          <text x="${xPos(monthData.findIndex(m=>m.rate===Math.max(...monthData.map(x=>x.rate))))}" y="${yPos(monthData.find(m=>m.rate===Math.max(...monthData.map(x=>x.rate))).closed)-16}" text-anchor="middle" font-size="8" fill="#4ade80">Best: ${Math.max(...monthData.map(m=>m.rate))}%</text>
         </svg>`;
       })()}
     </div>
