@@ -969,19 +969,18 @@ async function rTix(){
     <th style="width:55px;cursor:default;text-align:center">Action</th>
   </tr></thead><tbody>
     ${S.tickets.length===0?`<tr><td colspan="11" class="empty">No tickets found</td></tr>`:
-      S.tickets.map(t=>`<tr>
-        <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
-        <td><span class="badge bp">${t.region}</span></td>
-        <td style="font-size:12px;color:var(--text2)">${t.ticket_date||'—'}</td>
-        <td style="font-size:12px;color:var(--text2)" title="${t.site_id_raw||''}">${t.site_id_raw||'—'}</td>
-        <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
-        <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-        <td style="font-size:12px;color:var(--text2)">${t.bo_team||'—'}</td>
+      S.tickets.map(t=>`<tr onclick="expandTicket(JSON.parse(this.dataset.t))" data-t="${JSON.stringify(t).replace(/"/g,'&quot;')}" style="cursor:pointer">
+        <td style="font-family:monospace;font-size:11px;color:var(--text2)">${t.tt_number||'—'}</td>
+        <td><span class="badge bp" style="font-size:10px">${t.region}</span></td>
+        <td style="font-size:11px;color:var(--text2)">${t.ticket_date||'—'}</td>
+        <td style="font-weight:500;font-size:12px">${t.site_id_canonical||'—'}</td>
+        <td style="font-size:11px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+        <td style="font-size:11px;color:var(--text2)" title="${t.bo_team||''}">${t.bo_team||'—'}</td>
         <td>${cbadge(t.site_class)}</td>
-        <td>${ce?`<select class="ssel" onchange="updSt(${t.id},this.value)">${['Open','Attended','Pending','Closed'].map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}</select>`:sbadge(t.status)}</td>
-        <td style="font-size:12px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
-        <td style="font-size:12px;color:var(--text2)">${t.updated_by||'—'}</td>
-        <td style="width:60px"><button class="btn bsm" style="white-space:nowrap" onclick="editTicket(${t.id})">Edit</button></td>
+        <td onclick="event.stopPropagation()">${ce?`<select class="ssel" onchange="updSt(${t.id},this.value)">${['Open','Attended','Pending','Closed'].map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}</select>`:sbadge(t.status)}</td>
+        <td style="font-size:11px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
+        <td style="font-size:11px;color:var(--text2)">${t.updated_by||'—'}</td>
+        <td onclick="event.stopPropagation()"><button class="btn bsm" onclick="editTicket(${t.id})" style="padding:3px 8px;font-size:11px">Edit</button></td>
       </tr>`).join('')}
   </tbody></table></div>
   ${pgn(S.ttotal,S.tpage,'S.tpage','rTix')}
