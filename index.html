@@ -48,7 +48,7 @@ body.dark-mode .ch{background:#1f1f1f}
 .sb-badge{margin-left:auto;background:var(--pri);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:500}
 .sb-foot{margin-top:auto;border-top:0.5px solid #1d1d1d;padding:10px 14px}
 .sb-avatar{width:24px;height:24px;background:var(--pri);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:500;flex-shrink:0}
-.sb-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.sb-main{flex:1;display:flex;flex-direction:column;overflow:visible;min-width:0}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13.5px;color:var(--text);background:var(--bg);min-height:100vh}
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 button{cursor:pointer;font-family:inherit;font-size:13px;border-radius:var(--r);transition:background .12s,opacity .12s}
@@ -242,14 +242,14 @@ tr:hover td{background:#fafafa}
       <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="background:transparent;border:1px solid #333;color:#888;padding:5px 10px;font-size:12px;border-radius:var(--r);cursor:pointer">&#9788;</button>
     </div>
   </div>
-  <div id="app-body" style="display:flex;flex:1;overflow:hidden;min-height:0">
-    <div class="sb-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
+  <div id="app-body" style="display:flex;flex:1;overflow:visible;min-height:0">
+    <div class="sb-main" style="flex:1;display:flex;flex-direction:column;overflow:visible;min-width:0">
       <div id="preview-bar" style="display:none;background:#1d4ed8;padding:7px 20px;align-items:center;justify-content:space-between">
         <span style="font-size:12px;color:#fff">&#128065; Previewing as: <strong id="preview-name"></strong> (<span id="preview-role"></span>) &mdash; simulation only, no changes saved</span>
         <button onclick="exitPreview()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;font-size:12px;border-radius:4px;cursor:pointer">Exit preview</button>
       </div>
       <div class="nav" id="nav" style="display:none"></div>
-      <div class="main" id="mc" style="flex:1;overflow-y:auto;overflow-x:hidden"></div>
+      <div class="main" id="mc" style="flex:1;overflow-y:auto;overflow-x:auto"></div>
     </div>
   </div>
 </div>
