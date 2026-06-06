@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Hayat Communications — TT Portal</title>
+<title>Digitus — TT Portal</title>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --green:#0F6E56;--green-dk:#085041;--green-lt:#E1F5EE;
+  --pri:#C8102E;--pri-dk:#9E0B23;--pri-lt:#FDEAED;
+  --dark:#1A1A1A;--dark2:#2C2C2C;--dark3:#3D3D3D;
   --amber:#BA7517;--amber-lt:#FAEEDA;
-  --red:#A32D2D;--red-lt:#FCEBEB;
   --blue:#185FA5;--blue-lt:#E6F1FB;
+  --green:#0F6E56;--green-lt:#E1F5EE;
   --gray:#5F5E5A;--gray-lt:#F1EFE8;
   --border:#e2e2e0;--bg:#f5f5f3;--surf:#fff;--surf2:#f9f9f7;
   --text:#1a1a18;--text2:#5f5e5a;--text3:#9a9994;
@@ -20,32 +21,37 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);min-height:100vh}
 button{cursor:pointer;font-family:inherit;font-size:13px;border-radius:var(--r);transition:all .15s}
 input,select,textarea{font-family:inherit;font-size:13px;border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;background:var(--surf);color:var(--text);width:100%;outline:none;transition:border .15s}
-input:focus,select:focus,textarea:focus{border-color:var(--green)}
+input:focus,select:focus,textarea:focus{border-color:var(--pri)}
 textarea{resize:vertical;min-height:68px;line-height:1.5}
 /* AUTH */
-#auth{min-height:100vh;display:flex;align-items:center;justify-content:center}
-.acard{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);padding:38px;width:370px}
-.alogo{display:flex;align-items:center;gap:10px;margin-bottom:26px}
-.alogo-ico{width:34px;height:34px;background:var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px}
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--dark)}
+.acard{background:var(--surf);border-radius:var(--rl);padding:40px;width:380px}
+.alogo{display:flex;align-items:center;gap:11px;margin-bottom:28px}
+.alogo-ico{width:36px;height:36px;background:var(--pri);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.5px}
+.alogo-name{font-size:15px;font-weight:700;color:var(--dark);letter-spacing:-.3px}
+.alogo-sub{font-size:11px;color:var(--text3)}
 .atitle{font-size:17px;font-weight:600;margin-bottom:3px}
 .asub{font-size:12px;color:var(--text2);margin-bottom:22px}
 .afield{margin-bottom:13px}
 .afield label{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px}
-.aerr{color:var(--red);font-size:12px;margin-top:8px;padding:8px;background:var(--red-lt);border-radius:var(--r);display:none}
+.aerr{color:var(--pri);font-size:12px;margin-top:8px;padding:8px;background:var(--pri-lt);border-radius:var(--r);display:none}
 /* APP */
 #app{display:none;flex-direction:column;min-height:100vh}
-.topbar{background:var(--surf);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.tbl-logo{width:26px;height:26px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
-.nav{background:var(--surf);border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto}
-.ntab{padding:10px 13px;font-size:13px;color:var(--text2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:all .15s}
-.ntab:hover{color:var(--text)}
-.ntab.active{color:var(--green);border-bottom-color:var(--green);font-weight:500}
+.topbar{background:var(--dark);border-bottom:1px solid var(--dark3);padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.tbar-logo{display:flex;align-items:center;gap:10px}
+.tbar-icon{width:26px;height:26px;background:var(--pri);border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;letter-spacing:-.5px}
+.tbar-name{font-size:12px;font-weight:600;color:#fff;letter-spacing:.2px}
+.tbar-sub{font-size:10px;color:#888}
+.nav{background:var(--dark2);border-bottom:1px solid var(--dark3);padding:0 20px;display:flex;overflow-x:auto}
+.ntab{padding:10px 14px;font-size:13px;color:#aaa;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:all .15s}
+.ntab:hover{color:#fff}
+.ntab.active{color:#fff;border-bottom-color:var(--pri);font-weight:500}
 .main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%}
 /* METRICS */
 .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
 .mc{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);padding:13px 15px}
-.ml{font-size:11px;color:var(--text2);margin-bottom:5px}
-.mv{font-size:22px;font-weight:600;line-height:1}
+.ml{font-size:11px;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.mv{font-size:22px;font-weight:700;line-height:1}
 .ms{font-size:11px;color:var(--text3);margin-top:2px}
 /* CARD */
 .card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:12px}
@@ -56,31 +62,35 @@ textarea{resize:vertical;min-height:68px;line-height:1.5}
 .tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .tb input{flex:1;min-width:150px}
 .tb select{width:auto;min-width:110px}
-.btn{background:var(--surf);color:var(--text);border:1px solid var(--border);padding:7px 13px;display:inline-flex;align-items:center;gap:5px}
+.btn{background:var(--surf);color:var(--text);border:1px solid var(--border);padding:7px 13px;display:inline-flex;align-items:center;gap:5px;border-radius:var(--r)}
 .btn:hover{background:var(--gray-lt)}
-.bg{background:var(--green);color:#fff;border-color:var(--green)}
-.bg:hover{background:var(--green-dk)}
+.bpri{background:var(--pri);color:#fff;border-color:var(--pri)}
+.bpri:hover{background:var(--pri-dk)}
 .bsm{padding:4px 9px;font-size:12px}
 /* TABLE */
 .tw{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-th{padding:8px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);background:var(--surf2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.03em;overflow:hidden}
+th{padding:8px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);background:var(--surf2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.03em;overflow:hidden;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}
+th.sort-asc::after{content:' ↑';color:var(--pri)}
+th.sort-desc::after{content:' ↓';color:var(--pri)}
 td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--surf2)}
 .pgn{display:flex;align-items:center;gap:5px;padding:9px 13px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);justify-content:flex-end}
 .pgb{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r);background:var(--surf);cursor:pointer;font-size:12px}
 .pgb:hover{background:var(--gray-lt)}
-.pgb.ap{background:var(--green);color:#fff;border-color:var(--green)}
+.pgb.ap{background:var(--pri);color:#fff;border-color:var(--pri)}
 /* BADGES */
 .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
-.bo{background:var(--red-lt);color:var(--red)}
-.bc{background:var(--green-lt);color:var(--green-dk)}
+.bo{background:var(--pri-lt);color:var(--pri)}
+.bc{background:var(--green-lt);color:var(--green)}
 .bp{background:var(--amber-lt);color:var(--amber)}
 .ba{background:var(--blue-lt);color:var(--blue)}
 .bca{background:#EEEDFE;color:#3C3489}
 .bcb{background:var(--blue-lt);color:var(--blue)}
 .bcc{background:var(--gray-lt);color:var(--gray)}
+.bur{background:#FDEAED;color:#9E0B23;font-weight:700}
 .rbdg{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;text-transform:uppercase}
 /* FORM */
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:11px}
@@ -93,11 +103,20 @@ tr:hover td{background:var(--surf2)}
 .ssel{font-size:12px;padding:3px 7px;border-radius:20px;border:1px solid var(--border);background:var(--surf);cursor:pointer;width:auto}
 .loading{text-align:center;padding:36px;color:var(--text3)}
 .empty{text-align:center;padding:36px;color:var(--text3)}
-.toast{position:fixed;bottom:22px;right:22px;background:var(--green);color:#fff;padding:9px 15px;border-radius:var(--r);font-size:13px;z-index:999;display:none}
-.pill{font-size:12px;color:var(--text2);background:var(--gray-lt);padding:3px 9px;border-radius:20px}
-.blgt{background:none;border:1px solid var(--border);color:var(--text2);padding:5px 11px;font-size:12px}
-.blgt:hover{background:var(--gray-lt)}
-@media(max-width:600px){.fg{grid-template-columns:1fr}.mrow{grid-template-columns:1fr 1fr}}
+.toast{position:fixed;bottom:22px;right:22px;color:#fff;padding:9px 15px;border-radius:var(--r);font-size:13px;z-index:999;display:none}
+.pill{font-size:12px;color:#ccc;background:var(--dark3);padding:3px 9px;border-radius:20px}
+.blgt{background:none;border:1px solid var(--dark3);color:#aaa;padding:5px 11px;font-size:12px;border-radius:var(--r)}
+.blgt:hover{background:var(--dark3);color:#fff}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.kpi-urgent{background:#1A0508;border:1px solid var(--pri);border-radius:var(--rl);padding:14px 16px;margin-bottom:12px}
+.kpi-urgent .ct{color:#fff}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-lbl{font-size:12px;color:var(--text2);width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-bg{flex:1;height:8px;background:var(--gray-lt);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px}
+.bar-cnt{font-size:12px;color:var(--text2);width:36px;text-align:right;flex-shrink:0}
+@media(max-width:600px){.fg{grid-template-columns:1fr}.mrow{grid-template-columns:1fr 1fr}.kpi-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -105,10 +124,10 @@ tr:hover td{background:var(--surf2)}
 <div id="auth">
   <div class="acard">
     <div class="alogo">
-      <div class="alogo-ico">H</div>
+      <div class="alogo-ico">DG</div>
       <div>
-        <div style="font-size:14px;font-weight:600">Hayat Communications</div>
-        <div style="font-size:11px;color:var(--text2)">NOC TT Tracker Portal</div>
+        <div class="alogo-name">Digitus</div>
+        <div class="alogo-sub">NOC TT Tracker Portal</div>
       </div>
     </div>
     <div class="atitle">Sign in</div>
@@ -119,18 +138,18 @@ tr:hover td{background:var(--surf2)}
       <input type="password" id="lp" placeholder="••••••••" autocomplete="current-password"
         onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <div id="aerr" class="aerr"></div>
-    <button class="btn bg" style="width:100%;margin-top:4px;justify-content:center" onclick="doLogin()">Sign in</button>
+    <button class="btn bpri" style="width:100%;margin-top:4px;justify-content:center" onclick="doLogin()">Sign in</button>
     <button class="btn" style="width:100%;margin-top:9px;justify-content:center;color:var(--text2)" onclick="doGuest()">Continue as guest (read-only)</button>
   </div>
 </div>
 
 <div id="app">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:9px">
-      <div class="tbl-logo">H</div>
+    <div class="tbar-logo">
+      <div class="tbar-icon">DG</div>
       <div>
-        <div style="font-size:13px;font-weight:600">Hayat Communications</div>
-        <div style="font-size:11px;color:var(--text3)">NOC TT Tracker Portal</div>
+        <div class="tbar-name">Digitus</div>
+        <div class="tbar-sub">NOC TT Tracker Portal</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:9px">
@@ -149,7 +168,11 @@ const SURL='https://dryfnspbsudwluunxloi.supabase.co';
 const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeWZuc3Bic3Vkd2x1dW54bG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzk0NzIsImV4cCI6MjA5NTkxNTQ3Mn0.xXRfuYgCY_5ueOUDtgSINCwpn70xrZL9wGQ8pSHbaIs';
 const sb=supabase.createClient(SURL,SKEY);
 const PP=50;
-let S={user:null,role:'guest',name:'Guest',tab:'dashboard',tickets:[],tpage:1,ttotal:0,tf:{q:'',status:'',region:'',issue:''},lkp:{},staff:[]};
+let S={user:null,role:'guest',name:'Guest',tab:'dashboard',
+  tickets:[],tpage:1,ttotal:0,
+  tsort:{col:'ticket_date',dir:'desc'},
+  tf:{q:'',status:'',region:'',issue:''},
+  lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
 function xSite(v){
@@ -161,6 +184,19 @@ function xSite(v){
   return m?m[1].toUpperCase().slice(0,3)+m[2]:'';
 }
 
+// URGENT issue categories
+const URGENT_ISSUES=['Commercial Power Outage','Mains Failure','ETC Generator Failure',
+  'Generator Failure Alarm','DC System Alarm / Module Failure','TEC Cooler Fault',
+  'High Shelter Temperature','AC Issue / Room Thermostat / High Temperature',
+  'Air Conditioner Unit','Compressor Fault','LOW FUEL LEVEL'];
+function isUrgent(issue,sclass){
+  if(!sclass||!issue)return false;
+  const cls=sclass.trim();
+  if(cls!=='Class A'&&cls!=='Class B')return false;
+  return URGENT_ISSUES.some(u=>issue.toLowerCase().includes(u.toLowerCase()));
+}
+
+// AUTH
 async function doLogin(){
   const e=document.getElementById('le').value.trim(),p=document.getElementById('lp').value;
   const er=document.getElementById('aerr');er.style.display='none';
@@ -170,11 +206,20 @@ async function doLogin(){
   await loadProfile(data.user);showApp();
 }
 async function doGuest(){S.user=null;S.role='guest';S.name='Guest';showApp();}
-async function doLogout(){await sb.auth.signOut();S={...S,user:null,role:'guest',name:'Guest'};document.getElementById('app').style.display='none';document.getElementById('auth').style.display='flex';}
+async function doLogout(){await sb.auth.signOut();S={...S,user:null,role:'guest',name:'Guest'};
+  document.getElementById('app').style.display='none';document.getElementById('auth').style.display='flex';}
 async function loadProfile(u){
   S.user=u;
-  const{data}=await sb.from('users').select('*').eq('id',u.id).single();
-  if(data){S.role=data.role;S.name=data.display_name;}else{S.role='guest';S.name=u.email;}
+  try{
+    const{data}=await sb.from('users').select('*').eq('id',u.id).maybeSingle();
+    if(data&&data.role){S.role=data.role;S.name=data.display_name;}
+    else{
+      await new Promise(r=>setTimeout(r,600));
+      const{data:d2}=await sb.from('users').select('*').eq('id',u.id).maybeSingle();
+      if(d2&&d2.role){S.role=d2.role;S.name=d2.display_name;}
+      else{S.role='guest';S.name=u.email;}
+    }
+  }catch(e){S.role='guest';S.name=u.email;}
 }
 function showAErr(m){const e=document.getElementById('aerr');e.textContent=m;e.style.display='block';}
 
@@ -183,39 +228,50 @@ async function showApp(){
   const app=document.getElementById('app');app.style.display='flex';app.style.flexDirection='column';
   document.getElementById('upill').textContent=S.name;
   const rb=document.getElementById('urole');rb.textContent=S.role;
-  rb.style.cssText=S.role==='admin'?'background:#EEEDFE;color:#3C3489':S.role==='noc'?'background:var(--blue-lt);color:var(--blue)':S.role==='management'?'background:var(--green-lt);color:var(--green-dk)':'background:var(--gray-lt);color:var(--gray)';
+  const rc={admin:'background:#3D0010;color:#ff6b8a',noc:'background:var(--dark3);color:#ccc',
+    management:'background:#1A0508;color:#ff9aaa',guest:'background:var(--dark3);color:#888'};
+  rb.style.cssText=rc[S.role]||rc.guest;
   await loadLkp();await loadStaff();renderNav();renderTab('dashboard');
 }
-async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');S.lkp={};(data||[]).forEach(r=>{if(!S.lkp[r.category])S.lkp[r.category]=[];S.lkp[r.category].push(r.value);});}
+async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');
+  S.lkp={};(data||[]).forEach(r=>{if(!S.lkp[r.category])S.lkp[r.category]=[];S.lkp[r.category].push(r.value);});}
 async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is_active',true).order('name');S.staff=data||[];}
 
+// NAV
 function tabs(){
-  const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'}];
+  const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'},{id:'kpi',l:'KPI Report'}];
   if(S.role!=='guest'){t.push({id:'new_ticket',l:'New Ticket'});t.push({id:'cleaner',l:'Site ID Cleaner'});}
-  if(S.role==='admin'||S.role==='management'){t.push({id:'mstaff',l:'Manage Staff'});t.push({id:'mlkp',l:'Manage Dropdowns'});}
+  if(S.role==='admin'||S.role==='management'){t.push({id:'mstaff',l:'Manage Staff & Users'});t.push({id:'mlkp',l:'Manage Dropdowns'});}
   return t;
 }
-function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>`<button class="ntab${S.tab===t.id?' active':''}" onclick="renderTab('${t.id}')">${t.l}</button>`).join('');}
-function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
+function renderNav(){document.getElementById('nav').innerHTML=tabs().map(t=>
+  `<button class="ntab${S.tab===t.id?' active':''}" onclick="renderTab('${t.id}')">${t.l}</button>`).join('');}
+function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
+  if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
+  else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
+  else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
 
 // DASHBOARD
 async function rDash(){
   const mc=document.getElementById('mc');
-  const[tot,opn,pnd,att,cls,reg]=await Promise.all([
+  const[tot,opn,pnd,att,cls]=await Promise.all([
     sb.from('tickets').select('*',{count:'exact',head:true}),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
     sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
-    sb.from('tickets').select('region').limit(60000),
   ]);
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
-  const rc={};(reg.data||[]).forEach(r=>{rc[r.region]=(rc[r.region]||0)+1;});
+
+  // Region counts via separate queries
+  const regData=await Promise.all(['DXB','NE','AUH','AAN','WR'].map(r=>
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region',r)));
+  const rc={DXB:regData[0].count||0,NE:regData[1].count||0,AUH:regData[2].count||0,AAN:regData[3].count||0,WR:regData[4].count||0};
+
   const{data:rec}=await sb.from('tickets').select('tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class').order('created_at',{ascending:false}).limit(10);
   mc.innerHTML=`
   <div class="mrow">
-    ${[['Total',T,C>0?Math.round(C/T*100)+'% closed':'All regions','var(--blue)'],
-       ['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--red)'],
+    ${[['Total',T,'All regions','#185FA5'],['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)'],
        ['Pending',P,Math.round(P/(T||1)*100)+'% of total','var(--amber)'],
        ['Attended',A,Math.round(A/(T||1)*100)+'% of total','var(--blue)'],
        ['Closed',C,Math.round(C/(T||1)*100)+'% closure rate','var(--green)'],
@@ -223,23 +279,27 @@ async function rDash(){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div class="card"><div class="ch"><div class="ct">Tickets by region</div></div><div class="cb">
-      ${['DXB','NE','AUH','AAN','WR'].map(r=>{const c=rc[r]||0,p=T?Math.round(c/T*100):0;return`<div style="margin-bottom:9px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:500">${r}</span><span style="color:var(--text2)">${c.toLocaleString()} (${p}%)</span></div>
-        <div style="height:5px;background:var(--gray-lt);border-radius:3px"><div style="height:100%;width:${p}%;background:var(--green);border-radius:3px"></div></div>
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>{const c=rc[r]||0,p=T?Math.round(c/T*100):0;return`<div class="bar-row">
+        <div class="bar-lbl" style="width:50px">${r}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${p}%;background:var(--pri)"></div></div>
+        <div class="bar-cnt">${c.toLocaleString()}</div>
       </div>`;}).join('')}
     </div></div>
     <div class="card"><div class="ch"><div class="ct">Status breakdown</div></div><div class="cb">
-      ${[['Open',O,'var(--red)'],['Pending',P,'var(--amber)'],['Attended',A,'var(--blue)'],['Closed',C,'var(--green)']].map(([l,v,c])=>{const p=T?Math.round(v/T*100):0;return`<div style="margin-bottom:9px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:500;color:${c}">${l}</span><span style="color:var(--text2)">${v.toLocaleString()} (${p}%)</span></div>
-        <div style="height:5px;background:var(--gray-lt);border-radius:3px"><div style="height:100%;width:${p}%;background:${c};border-radius:3px"></div></div>
-      </div>`;}).join('')}
+      ${[['Open',O,'var(--pri)'],['Pending',P,'var(--amber)'],['Attended',A,'var(--blue)'],['Closed',C,'var(--green)']].map(([l,v,c])=>{
+        const p=T?Math.round(v/T*100):0;return`<div class="bar-row">
+          <div class="bar-lbl" style="width:70px;color:${c};font-weight:500">${l}</div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${p}%;background:${c}"></div></div>
+          <div class="bar-cnt">${v.toLocaleString()}</div>
+        </div>`;}).join('')}
     </div></div>
   </div>
   <div class="card"><div class="ch"><div class="ct">Recent tickets</div><button class="btn bsm" onclick="renderTab('tickets')">View all →</button></div>
   <div class="tw"><table><thead><tr>
-    <th style="width:110px">TT Number</th><th style="width:60px">Region</th><th style="width:90px">Date</th>
-    <th style="width:100px">Site (raw)</th><th style="width:90px">Canonical</th>
-    <th style="width:190px">Issue</th><th style="width:75px">Class</th><th style="width:90px">Status</th>
+    <th style="width:110px;cursor:default">TT Number</th><th style="width:60px;cursor:default">Region</th>
+    <th style="width:90px;cursor:default">Date</th><th style="width:100px;cursor:default">Site (raw)</th>
+    <th style="width:90px;cursor:default">Corrected Site ID</th><th style="width:190px;cursor:default">Issue</th>
+    <th style="width:75px;cursor:default">Class</th><th style="width:90px;cursor:default">Status</th>
   </tr></thead><tbody>
     ${(rec||[]).map(t=>`<tr>
       <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
@@ -248,23 +308,194 @@ async function rDash(){
       <td style="font-size:12px;color:var(--text2)" title="${t.site_id_raw||''}">${t.site_id_raw||'—'}</td>
       <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
       <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-      <td>${cbadge(t.site_class)}</td>
-      <td>${sbadge(t.status)}</td>
+      <td>${cbadge(t.site_class)}</td><td>${sbadge(t.status)}</td>
     </tr>`).join('')}
   </tbody></table></div></div>`;
 }
 
-// TICKETS
+// KPI REPORT
+async function rKPI(){
+  const mc=document.getElementById('mc');
+  mc.innerHTML='<div class="loading">Building KPI report…</div>';
+
+  const[tot,opn,pnd,att,cls,urgRes,classRes,siteRes,ageRes]=await Promise.all([
+    sb.from('tickets').select('*',{count:'exact',head:true}),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
+    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
+    // Urgent: Class A+B with AC/power issues still open
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status')
+      .in('site_class',['Class A','Class B']).in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
+    // Class breakdown
+    sb.from('tickets').select('site_class,status').limit(60000),
+    // Repeated sites
+    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(60000),
+    // Aging: open tickets oldest first
+    sb.from('tickets').select('tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region')
+      .in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(100),
+  ]);
+
+  const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
+  const resRate=T>0?Math.round(C/T*100):0;
+  const openRate=T>0?Math.round((O+P)/T*100):0;
+
+  // Urgent tickets (Class A/B + AC/Power issues)
+  const urgTix=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class));
+
+  // Class breakdown counts
+  const classCounts={'Class A':{total:0,open:0,closed:0},'Class B':{total:0,open:0,closed:0},'Class C':{total:0,open:0,closed:0}};
+  (classRes.data||[]).forEach(r=>{
+    const c=r.site_class;if(!c||!classCounts[c])return;
+    classCounts[c].total++;
+    if(r.status==='Closed')classCounts[c].closed++;
+    else classCounts[c].open++;
+  });
+
+  // Repeated sites (site_id_canonical appearing >1 time)
+  const siteCounts={};
+  (siteRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
+  const repeated=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const maxRep=repeated.length?repeated[0][1]:1;
+
+  // Aging: days since ticket_date
+  const now=new Date();
+  const agingTix=(ageRes.data||[]).map(t=>{
+    const d=t.ticket_date?Math.floor((now-new Date(t.ticket_date))/86400000):0;
+    return{...t,days:d};
+  }).sort((a,b)=>b.days-a.days).slice(0,15);
+  const maxAge=agingTix.length?agingTix[0].days:1;
+
+  mc.innerHTML=`
+  <!-- KPI Summary Row -->
+  <div class="mrow">
+    <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
+    <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
+    <div class="mc"><div class="ml">Urgent (A/B + AC/Power)</div><div class="mv" style="color:var(--pri)">${urgTix.length}</div><div class="ms">Need immediate action</div></div>
+    <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
+    <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
+  </div>
+
+  <!-- Urgent tickets -->
+  ${urgTix.length>0?`
+  <div class="kpi-urgent">
+    <div class="ch" style="background:transparent;border-color:#5a0015;margin:-14px -16px 12px">
+      <div class="ct" style="color:#ff6b8a">&#9888; Urgent — Class A/B with AC or power issue (${urgTix.length})</div>
+    </div>
+    <div class="tw"><table><thead><tr>
+      <th style="width:110px;color:#aaa;cursor:default">TT Number</th>
+      <th style="width:60px;color:#aaa;cursor:default">Region</th>
+      <th style="width:90px;color:#aaa;cursor:default">Date</th>
+      <th style="width:90px;color:#aaa;cursor:default">Site</th>
+      <th style="width:70px;color:#aaa;cursor:default">Class</th>
+      <th style="color:#aaa;cursor:default">Issue</th>
+      <th style="width:80px;color:#aaa;cursor:default">Status</th>
+    </tr></thead><tbody>
+      ${urgTix.slice(0,20).map(t=>`<tr style="background:transparent">
+        <td style="font-family:monospace;font-size:12px;color:#fff">${t.tt_number||'—'}</td>
+        <td><span class="badge bur">${t.region}</span></td>
+        <td style="color:#aaa;font-size:12px">${t.ticket_date||'—'}</td>
+        <td style="font-weight:500;color:#fff">${t.site_id_canonical||'—'}</td>
+        <td>${cbadge(t.site_class)}</td>
+        <td style="font-size:12px;color:#ddd" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+        <td>${sbadge(t.status)}</td>
+      </tr>`).join('')}
+    </tbody></table></div>
+  </div>`:''}
+
+  <div class="kpi-grid">
+    <!-- Site class summary -->
+    <div class="card"><div class="ch"><div class="ct">Ticket summary by site class</div></div><div class="cb">
+      ${Object.entries(classCounts).map(([cls,d])=>{
+        const pct=d.total>0?Math.round(d.closed/d.total*100):0;
+        return`<div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span>${cbadge(cls)}</span>
+            <span style="font-size:12px;color:var(--text2)">${d.total.toLocaleString()} total &nbsp;·&nbsp; ${pct}% resolved</span>
+          </div>
+          <div style="display:flex;gap:4px;height:10px;border-radius:5px;overflow:hidden">
+            <div style="flex:${d.closed};background:var(--green)" title="Closed: ${d.closed.toLocaleString()}"></div>
+            <div style="flex:${d.open};background:var(--pri)" title="Open/Pending: ${d.open.toLocaleString()}"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:3px">
+            <span style="color:var(--green)">Closed: ${d.closed.toLocaleString()}</span>
+            <span style="color:var(--pri)">Open/Pending: ${d.open.toLocaleString()}</span>
+          </div>
+        </div>`;}).join('')}
+    </div></div>
+
+    <!-- Resolution rate gauge -->
+    <div class="card"><div class="ch"><div class="ct">Resolution rate</div></div><div class="cb">
+      <div style="text-align:center;padding:10px 0 16px">
+        <div style="font-size:52px;font-weight:700;color:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'}">${resRate}%</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">${C.toLocaleString()} closed of ${T.toLocaleString()} total</div>
+      </div>
+      <div style="height:10px;background:var(--gray-lt);border-radius:5px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${resRate}%;background:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'};border-radius:5px;transition:width .5s"></div>
+      </div>
+      ${[['Closed',C,'var(--green)'],['Attended',A,'var(--blue)'],['Pending',P,'var(--amber)'],['Open',O,'var(--pri)']].map(([l,v,c])=>`
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="color:${c};font-weight:500">${l}</span>
+        <span style="color:var(--text2)">${v.toLocaleString()} (${T?Math.round(v/T*100):0}%)</span>
+      </div>`).join('')}
+    </div></div>
+  </div>
+
+  <!-- Repeated sites -->
+  <div class="card"><div class="ch"><div class="ct">Top repeated sites</div><span style="font-size:12px;color:var(--text3)">Sites with more than one ticket</span></div><div class="cb">
+    ${repeated.length===0?'<div class="empty">No repeated sites found</div>':
+      repeated.map(([site,cnt])=>`<div class="bar-row">
+        <div class="bar-lbl" style="font-weight:500">${site}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(cnt/maxRep*100)}%;background:var(--pri)"></div></div>
+        <div class="bar-cnt" style="font-weight:500;color:var(--pri)">${cnt}</div>
+      </div>`).join('')}
+  </div></div>
+
+  <!-- Aging tickets -->
+  <div class="card"><div class="ch"><div class="ct">Aging open tickets</div><span style="font-size:12px;color:var(--text3)">Oldest unresolved tickets</span></div>
+  <div class="tw"><table><thead><tr>
+    <th style="width:110px;cursor:default">TT Number</th><th style="width:60px;cursor:default">Region</th>
+    <th style="width:90px;cursor:default">Opened</th><th style="width:90px;cursor:default">Site</th>
+    <th style="width:70px;cursor:default">Class</th><th style="cursor:default">Issue</th>
+    <th style="width:70px;cursor:default">Days open</th>
+  </tr></thead><tbody>
+    ${agingTix.map(t=>`<tr>
+      <td style="font-family:monospace;font-size:12px">${t.tt_number||'—'}</td>
+      <td><span class="badge bp">${t.region}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${t.ticket_date||'—'}</td>
+      <td style="font-weight:500">${t.site_id_canonical||'—'}</td>
+      <td>${cbadge(t.site_class)}</td>
+      <td style="font-size:12px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+      <td><span class="badge ${t.days>30?'bo':t.days>14?'bp':'ba'}">${t.days}d</span></td>
+    </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ALL TICKETS with sorting
 async function rTix(){
-  const mc=document.getElementById('mc');const f=S.tf;
+  const mc=document.getElementById('mc');const f=S.tf;const srt=S.tsort;
   let q=sb.from('tickets').select('*',{count:'exact'});
   if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_raw.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
   if(f.status)q=q.eq('status',f.status);
   if(f.region)q=q.eq('region',f.region);
   const fr=(S.tpage-1)*PP,to=fr+PP-1;
-  const{data,count}=await q.order('ticket_date',{ascending:false}).range(fr,to);
+  const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
   S.tickets=data||[];S.ttotal=count||0;
   const ce=S.role==='noc'||S.role==='admin';
+
+  const cols=[
+    {id:'tt_number',l:'TT Number',w:'110px'},
+    {id:'region',l:'Region',w:'60px'},
+    {id:'ticket_date',l:'Date',w:'90px'},
+    {id:'site_id_raw',l:'Site (raw)',w:'100px'},
+    {id:'site_id_canonical',l:'Corrected Site ID',w:'110px'},
+    {id:'tt_issue',l:'Issue',w:'180px'},
+    {id:'bo_team',l:'BO Team',w:'115px'},
+    {id:'site_class',l:'Class',w:'75px'},
+    {id:'status',l:'Status',w:'105px'},
+    {id:'tt_date_attended',l:'Attended',w:'95px'},
+  ];
+
   mc.innerHTML=`
   <div class="tb">
     <input type="text" placeholder="Search TT#, site, issue, BO team…" value="${f.q}"
@@ -277,15 +508,24 @@ async function rTix(){
       <option value="">All regions</option>
       ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>${r}</option>`).join('')}
     </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tpage=1;rTix()">Clear</button>
-    ${ce?'<button class="btn bg" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
+    <select onchange="S.tsort.col=this.value;S.tpage=1;rTix()" style="min-width:130px">
+      ${cols.map(c=>`<option value="${c.id}"${srt.col===c.id?' selected':''}>${c.l}</option>`).join('')}
+    </select>
+    <select onchange="S.tsort.dir=this.value;S.tpage=1;rTix()" style="min-width:90px">
+      <option value="desc"${srt.dir==='desc'?' selected':''}>Newest first</option>
+      <option value="asc"${srt.dir==='asc'?' selected':''}>Oldest first</option>
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
+    ${ce?'<button class="btn bpri" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
   </div>
   <div class="card"><div class="tw"><table><thead><tr>
-    <th style="width:110px">TT Number</th><th style="width:60px">Region</th>
-    <th style="width:90px">Date</th><th style="width:100px">Site (raw)</th>
-    <th style="width:90px">Canonical</th><th style="width:180px">Issue</th>
-    <th style="width:115px">BO Team</th><th style="width:75px">Class</th>
-    <th style="width:105px">Status</th><th style="width:95px">Attended</th>
+    ${cols.map(c=>{
+      const isSorted=srt.col===c.id;
+      return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc}'};S.tpage=1;rTix()"
+        class="${isSorted?'sort-'+srt.dir:''}">${c.l}</th>`;
+    }).join('')}
   </tr></thead><tbody>
     ${S.tickets.length===0?`<tr><td colspan="10" class="empty">No tickets found</td></tr>`:
       S.tickets.map(t=>`<tr>
@@ -321,37 +561,34 @@ function rNew(){
   mc.innerHTML=`
   <div class="card" style="max-width:840px">
     <div class="ch"><div class="ct">Create new ticket</div></div>
-    <div class="cb">
-      <div class="fg">
-        <div class="ff"><label>TT / IM Number *</label><input type="text" id="f1" placeholder="e.g. IM8400001"></div>
-        <div class="ff"><label>Region *</label><select id="f2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select></div>
-        <div class="ff"><label>Date *</label><input type="date" id="f3"></div>
-        <div class="ff"><label>VOPS Reference</label><input type="text" id="f4" placeholder="Optional"></div>
-        <div class="ff full">
-          <label>Site ID (raw) *</label>
-          <input type="text" id="f5" placeholder="e.g. DXBL3164-HUB or DXB1568" oninput="rSite(this.value)">
-          <div id="srok" class="srok"></div><div id="sramb" class="sramb"></div>
-        </div>
-        <div class="ff"><label>Canonical Site ID</label><input type="text" id="f6" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
-        <div class="ff"><label>Site Class</label><input type="text" id="f7" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
-        <div class="ff"><label>Site Type</label><input type="text" id="f8" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
-        <div class="ff"><label>Issue Type *</label><select id="f9"><option value="">Select issue</option>${iss}</select></div>
-        <div class="ff"><label>BO Team</label><select id="f10"><option value="">Select</option>${bo}</select></div>
-        <div class="ff"><label>Tech Name</label><select id="f11"><option value="">Select</option>${tc}</select></div>
-        <div class="ff"><label>Date Attended</label><input type="date" id="f12"></div>
-        <div class="ff"><label>Outage Start</label><input type="datetime-local" id="f13"></div>
-        <div class="ff"><label>Battery Status</label><select id="f14"><option value="">Select</option>${(S.lkp.battery_status||[]).map(b=>`<option>${b}</option>`).join('')}</select></div>
-        <div class="ff"><label>Status</label><select id="f15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select></div>
-        <div class="ff full"><label>Battery Remarks</label><input type="text" id="f16" placeholder="Optional"></div>
-        <div class="ff full"><label>Remarks</label><textarea id="f17" placeholder="General remarks…"></textarea></div>
-        <div class="ff full"><label>Resolution</label><textarea id="f18" placeholder="Resolution details…"></textarea></div>
-        <div class="ff full"><label>Closure Remarks</label><textarea id="f19" placeholder="Closure notes…"></textarea></div>
+    <div class="cb"><div class="fg">
+      <div class="ff"><label>TT / IM Number *</label><input type="text" id="f1" placeholder="e.g. IM8400001"></div>
+      <div class="ff"><label>Region *</label><select id="f2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select></div>
+      <div class="ff"><label>Date *</label><input type="date" id="f3"></div>
+      <div class="ff"><label>VOPS Reference</label><input type="text" id="f4" placeholder="Optional"></div>
+      <div class="ff full"><label>Site ID (raw) *</label>
+        <input type="text" id="f5" placeholder="e.g. DXBL3164-HUB or DXB1568" oninput="rSite(this.value)">
+        <div id="srok" class="srok"></div><div id="sramb" class="sramb"></div>
       </div>
-      <div class="fa">
-        <button class="btn bg" onclick="subTix()">Submit Ticket</button>
-        <button class="btn" onclick="renderTab('tickets')">Cancel</button>
-      </div>
+      <div class="ff"><label>Corrected Site ID</label><input type="text" id="f6" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+      <div class="ff"><label>Site Class</label><input type="text" id="f7" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+      <div class="ff"><label>Site Type</label><input type="text" id="f8" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+      <div class="ff"><label>Issue Type *</label><select id="f9"><option value="">Select issue</option>${iss}</select></div>
+      <div class="ff"><label>BO Team</label><select id="f10"><option value="">Select</option>${bo}</select></div>
+      <div class="ff"><label>Tech Name</label><select id="f11"><option value="">Select</option>${tc}</select></div>
+      <div class="ff"><label>Date Attended</label><input type="date" id="f12"></div>
+      <div class="ff"><label>Outage Start</label><input type="datetime-local" id="f13"></div>
+      <div class="ff"><label>Battery Status</label><select id="f14"><option value="">Select</option>${(S.lkp.battery_status||[]).map(b=>`<option>${b}</option>`).join('')}</select></div>
+      <div class="ff"><label>Status</label><select id="f15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="ff full"><label>Battery Remarks</label><input type="text" id="f16" placeholder="Optional"></div>
+      <div class="ff full"><label>Remarks</label><textarea id="f17" placeholder="General remarks…"></textarea></div>
+      <div class="ff full"><label>Resolution</label><textarea id="f18" placeholder="Resolution details…"></textarea></div>
+      <div class="ff full"><label>Closure Remarks</label><textarea id="f19" placeholder="Closure notes…"></textarea></div>
     </div>
+    <div class="fa">
+      <button class="btn bpri" onclick="subTix()">Submit Ticket</button>
+      <button class="btn" onclick="renderTab('tickets')">Cancel</button>
+    </div></div>
   </div>`;
   document.getElementById('f3').valueAsDate=new Date();
 }
@@ -379,9 +616,7 @@ async function rSite(raw){
 }
 
 async function subTix(){
-  const tt=document.getElementById('f1').value.trim();
-  const rg=document.getElementById('f2').value;
-  const iss=document.getElementById('f9').value;
+  const tt=document.getElementById('f1').value.trim(),rg=document.getElementById('f2').value,iss=document.getElementById('f9').value;
   if(!tt||!rg||!iss){toast('TT Number, Region and Issue Type are required',1);return;}
   const{error}=await sb.from('tickets').insert([{
     tt_number:tt,region:rg,
@@ -391,8 +626,7 @@ async function subTix(){
     site_id_canonical:document.getElementById('f6').value.trim()||null,
     site_class:document.getElementById('f7').value||null,
     site_type:document.getElementById('f8').value||null,
-    tt_issue:iss,
-    bo_team:document.getElementById('f10').value||null,
+    tt_issue:iss,bo_team:document.getElementById('f10').value||null,
     tech_name:document.getElementById('f11').value||null,
     tt_date_attended:document.getElementById('f12').value||null,
     outage_start:document.getElementById('f13').value||null,
@@ -408,7 +642,7 @@ async function subTix(){
   toast('Ticket submitted');renderTab('tickets');
 }
 
-// CLEANER
+// SITE ID CLEANER
 function rClean(){
   document.getElementById('mc').innerHTML=`
   <div style="max-width:900px">
@@ -417,11 +651,11 @@ function rClean(){
         <textarea id="ci" style="min-height:150px" placeholder="Paste raw values, one per line&#10;e.g. DXBL3164-HUB-Nr-Hudaybiyah&#10;SHJ2632_HUB : High shelter temp"></textarea>
       </div></div>
       <div class="card"><div class="ch"><div class="ct">MDB reference (optional)</div></div><div class="cb">
-        <textarea id="cm" style="min-height:150px" placeholder="Leave blank to use Supabase MDB (recommended)&#10;Or paste known Site IDs, one per line"></textarea>
+        <textarea id="cm" style="min-height:150px" placeholder="Leave blank to use Supabase MDB (recommended)&#10;Or paste known Site IDs one per line"></textarea>
       </div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="btn bg" onclick="runCl()">Clean site IDs</button>
+      <button class="btn bpri" onclick="runCl()">Clean site IDs</button>
       <button class="btn" onclick="document.getElementById('ci').value='';document.getElementById('cr').innerHTML=''">Clear</button>
     </div>
     <div id="cr"></div>
@@ -450,12 +684,13 @@ async function runCl(){
     <div class="mc"><div class="ml">Total</div><div class="mv" style="color:var(--blue)">${rows.length}</div></div>
     <div class="mc"><div class="ml">Cleaned</div><div class="mv" style="color:var(--green)">${cl}</div></div>
     <div class="mc"><div class="ml">Unverified</div><div class="mv" style="color:var(--amber)">${uv}</div></div>
-    <div class="mc"><div class="ml">No match</div><div class="mv" style="color:var(--red)">${nm}</div></div>
+    <div class="mc"><div class="ml">No match</div><div class="mv" style="color:var(--pri)">${nm}</div></div>
   </div>
   <div class="card"><div class="tw"><table><thead><tr>
-    <th style="width:28px">#</th><th style="width:220px">Raw input</th>
-    <th style="width:95px">Canonical</th><th style="width:60px">Region</th>
-    <th style="width:75px">Class</th><th style="width:115px">Site type</th><th style="width:105px">MDB status</th>
+    <th style="width:28px;cursor:default">#</th><th style="width:220px;cursor:default">Raw input</th>
+    <th style="width:95px;cursor:default">Corrected Site ID</th><th style="width:60px;cursor:default">Region</th>
+    <th style="width:75px;cursor:default">Class</th><th style="width:115px;cursor:default">Site type</th>
+    <th style="width:105px;cursor:default">MDB status</th>
   </tr></thead><tbody>
     ${rows.map((r,i)=>`<tr>
       <td style="color:var(--text3)">${i+1}</td>
@@ -474,33 +709,93 @@ async function runCl(){
   </div></div>`;
 }
 
-// MANAGE STAFF
+// MANAGE STAFF & USERS
 async function rStaff(){
-  const{data:st}=await sb.from('staff').select('*').order('name');
+  const[stRes,usRes]=await Promise.all([
+    sb.from('staff').select('*').order('name'),
+    sb.from('users').select('*').order('display_name'),
+  ]);
+  const st=stRes.data||[],us=usRes.data||[];
   const mc=document.getElementById('mc');
   mc.innerHTML=`
-  <div style="max-width:680px">
+  <div style="max-width:760px">
+
+    <!-- Add Portal User -->
     <div class="card" style="margin-bottom:12px">
-      <div class="ch"><div class="ct">Add staff member</div></div><div class="cb">
+      <div class="ch"><div class="ct">Add portal user (NOC / Management)</div></div><div class="cb">
+        <div style="background:var(--amber-lt);border-radius:var(--r);padding:9px 12px;font-size:12px;margin-bottom:12px;color:var(--amber)">
+          &#9432; First create the user's account in Supabase Auth (Authentication → Add User), then add them here to assign their role.
+        </div>
+        <div class="fg">
+          <div class="ff"><label>Supabase User UUID *</label><input type="text" id="uu" placeholder="Paste UUID from Supabase Auth"></div>
+          <div class="ff"><label>Display Name *</label><input type="text" id="un" placeholder="e.g. Ahmed Hassan"></div>
+          <div class="ff"><label>Role *</label><select id="ur">
+            <option value="noc">NOC</option>
+            <option value="management">Management</option>
+            <option value="admin">Admin</option>
+          </select></div>
+        </div>
+        <div class="fa"><button class="btn bpri" onclick="addUsr()">Add user</button></div>
+      </div>
+    </div>
+
+    <!-- Portal users list -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Portal users (${us.length})</div></div>
+      <div class="tw"><table><thead><tr>
+        <th>Display name</th><th>Role</th><th>Status</th><th style="width:90px">Action</th>
+      </tr></thead><tbody>
+        ${us.map(u=>`<tr>
+          <td style="font-weight:500">${u.display_name}</td>
+          <td><span class="rbdg" style="${u.role==='admin'?'background:#3D0010;color:#ff6b8a':u.role==='noc'?'background:var(--dark3);color:#ccc':'background:#1A0508;color:#ff9aaa'}">${u.role}</span></td>
+          <td>${u.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
+          <td><button class="btn bsm" onclick="togUsr('${u.id}',${u.is_active})">${u.is_active?'Deactivate':'Activate'}</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>
+
+    <!-- Add staff -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><div class="ct">Add staff member (BO Team / Tech)</div></div><div class="cb">
         <div class="fg">
           <div class="ff"><label>Full name *</label><input type="text" id="sn" placeholder="e.g. Shahzad Tariq"></div>
           <div class="ff"><label>Role type *</label><select id="sr"><option value="bo_team">BO Team Lead</option><option value="tech">Field Engineer</option></select></div>
           <div class="ff"><label>Primary region</label><select id="sg"><option value="">All regions</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select></div>
         </div>
-        <div class="fa"><button class="btn bg" onclick="addSt()">Add staff member</button></div>
+        <div class="fa"><button class="btn bpri" onclick="addSt()">Add staff member</button></div>
       </div>
     </div>
-    <div class="card"><div class="ch"><div class="ct">Staff list (${(st||[]).length})</div></div>
-    <div class="tw"><table><thead><tr><th>Name</th><th>Role</th><th>Region</th><th>Status</th><th style="width:90px">Action</th></tr></thead><tbody>
-      ${(st||[]).map(s=>`<tr>
-        <td style="font-weight:500">${s.name}</td>
-        <td>${s.role_type==='bo_team'?'BO Team Lead':'Field Engineer'}</td>
-        <td>${s.primary_region||'All'}</td>
-        <td>${s.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
-        <td><button class="btn bsm" onclick="togSt(${s.id},${s.is_active})">${s.is_active?'Deactivate':'Activate'}</button></td>
-      </tr>`).join('')}
-    </tbody></table></div></div>
+
+    <!-- Staff list -->
+    <div class="card">
+      <div class="ch"><div class="ct">Staff list (${st.length})</div></div>
+      <div class="tw"><table><thead><tr>
+        <th>Name</th><th>Role</th><th>Region</th><th>Status</th><th style="width:90px">Action</th>
+      </tr></thead><tbody>
+        ${st.map(s=>`<tr>
+          <td style="font-weight:500">${s.name}</td>
+          <td>${s.role_type==='bo_team'?'BO Team Lead':'Field Engineer'}</td>
+          <td>${s.primary_region||'All'}</td>
+          <td>${s.is_active?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--text3)">Inactive</span>'}</td>
+          <td><button class="btn bsm" onclick="togSt(${s.id},${s.is_active})">${s.is_active?'Deactivate':'Activate'}</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>
   </div>`;
+}
+
+async function addUsr(){
+  const id=document.getElementById('uu').value.trim();
+  const name=document.getElementById('un').value.trim();
+  const role=document.getElementById('ur').value;
+  if(!id||!name){toast('UUID and Display Name are required',1);return;}
+  const{error}=await sb.from('users').insert([{id,display_name:name,role}]);
+  if(error){toast('Error: '+error.message,1);return;}
+  toast('User added');rStaff();
+}
+async function togUsr(id,cur){
+  await sb.from('users').update({is_active:!cur}).eq('id',id);
+  toast(cur?'User deactivated':'User activated');rStaff();
 }
 async function addSt(){
   const n=document.getElementById('sn').value.trim(),r=document.getElementById('sr').value,g=document.getElementById('sg').value||null;
@@ -511,12 +806,11 @@ async function addSt(){
 }
 async function togSt(id,cur){await sb.from('staff').update({is_active:!cur}).eq('id',id);await loadStaff();rStaff();}
 
-// MANAGE LOOKUPS
+// MANAGE DROPDOWNS
 async function rLkp(){
   const{data}=await sb.from('lookup_values').select('*').order('category').order('sort_order');
   const cats={};(data||[]).forEach(r=>{if(!cats[r.category])cats[r.category]=[];cats[r.category].push(r);});
-  const mc=document.getElementById('mc');
-  mc.innerHTML=`
+  document.getElementById('mc').innerHTML=`
   <div style="max-width:680px">
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><div class="ct">Add dropdown value</div></div><div class="cb">
@@ -524,11 +818,14 @@ async function rLkp(){
           <div class="ff"><label>Category *</label><select id="lc">${Object.keys(cats).map(c=>`<option>${c}</option>`).join('')}<option value="__new">+ New category…</option></select></div>
           <div class="ff"><label>Value *</label><input type="text" id="lv" placeholder="e.g. NEW ISSUE TYPE"></div>
         </div>
-        <div class="fa"><button class="btn bg" onclick="addLv()">Add value</button></div>
+        <div class="fa"><button class="btn bpri" onclick="addLv()">Add value</button></div>
       </div>
     </div>
     <div class="card"><div class="ch"><div class="ct">All dropdown values</div></div>
-    <div class="tw"><table><thead><tr><th>Category</th><th>Value</th><th>Status</th><th style="width:80px">Action</th></tr></thead><tbody>
+    <div class="tw"><table><thead><tr>
+      <th style="cursor:default">Category</th><th style="cursor:default">Value</th>
+      <th style="cursor:default">Status</th><th style="width:80px;cursor:default">Action</th>
+    </tr></thead><tbody>
       ${(data||[]).map(r=>`<tr>
         <td style="color:var(--text2);font-size:12px">${r.category}</td>
         <td style="font-weight:500">${r.value}</td>
@@ -548,6 +845,36 @@ async function addLv(){
 }
 async function togLv(id,cur){await sb.from('lookup_values').update({is_active:!cur}).eq('id',id);await loadLkp();rLkp();}
 
+
+// DOWNLOAD CSV
+async function dlTix(){
+  toast('Preparing download…');
+  const f=S.tf;const srt=S.tsort;
+  let q=sb.from('tickets').select('*');
+  if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_raw.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
+  if(f.status)q=q.eq('status',f.status);
+  if(f.region)q=q.eq('region',f.region);
+  const{data}=await q.order(srt.col,{ascending:srt.dir==='asc'}).limit(100000);
+  if(!data||!data.length){toast('No data to download',1);return;}
+  const cols=['tt_number','region','ticket_date','vops','site_id_raw','site_id_canonical',
+    'site_type','site_class','tt_issue','bo_team','tech_name','tt_date_attended',
+    'outage_start','battery_status','battery_remarks','remarks','resolution',
+    'closure_remarks','status','opened_by','updated_by','created_at','updated_at'];
+  const esc=v=>{if(v==null)return'';const s=String(v);return s.includes(',')||s.includes('"')||s.includes('
+')?`"${s.replace(/"/g,'""')}"`:s;};
+  const rows=[cols.join(','),...data.map(r=>cols.map(c=>esc(r[c])).join(','))];
+  const blob=new Blob([rows.join('
+')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const now=new Date();
+  const stamp=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  a.href=url;a.download=`TT_Export_${f.region||'ALL'}_${f.status||'ALL'}_${stamp}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`Downloaded ${data.length.toLocaleString()} rows`);
+}
+
 // HELPERS
 function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
 function cbadge(c){if(!c)return'—';const m={'Class A':'bca','Class B':'bcb','Class C':'bcc'};return`<span class="badge ${m[c]||'bcc'}">${c}</span>`;}
@@ -560,9 +887,9 @@ function pgn(total,page,pk,fn){
   h+=`<div class="pgb" onclick="${pk}=${Math.min(tp,page+1)};${fn}()">&#8250;</div>`;
   return`<div class="pgn">${h}</div>`;
 }
-function toast(m,err=0){const t=document.getElementById('toast');t.textContent=m;t.style.background=err?'var(--red)':'var(--green)';t.style.display='block';setTimeout(()=>t.style.display='none',2800);}
+function toast(m,err=0){const t=document.getElementById('toast');t.textContent=m;t.style.background=err?'var(--pri)':'#222';t.style.display='block';setTimeout(()=>t.style.display='none',2800);}
 
-// AUTO SESSION CHECK
+// AUTO SESSION
 (async()=>{const{data:{session}}=await sb.auth.getSession();if(session){await loadProfile(session.user);showApp();}})();
 </script>
 </body>
