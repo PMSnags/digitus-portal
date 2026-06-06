@@ -241,16 +241,21 @@ function xSite(v){
   return m?m[1].toUpperCase().slice(0,3)+m[2]:'';
 }
 
-// URGENT issue categories
-const URGENT_ISSUES=['Commercial Power Outage','Mains Failure','ETC Generator Failure',
-  'Generator Failure Alarm','DC System Alarm / Module Failure','TEC Cooler Fault',
-  'High Shelter Temperature','AC Issue / Room Thermostat / High Temperature',
-  'Air Conditioner Unit','Compressor Fault','LOW FUEL LEVEL'];
+// URGENT logic:
+// 1. Class A or B — always urgent regardless of issue
+// 2. Any power or AC related issue — urgent regardless of site class
+const URGENT_KEYWORDS=['power','outage','mains','generator','fuel','genset',
+  'rectifier','dc system','module failure','breaker',
+  'ac ','a/c','air condition','cooler','cooling','shelter temp','high temp',
+  'thermostat','hvac','tec ','etc '];
 function isUrgent(issue,sclass){
-  if(!sclass||!issue)return false;
-  const cls=sclass.trim();
-  if(cls!=='Class A'&&cls!=='Class B')return false;
-  return URGENT_ISSUES.some(u=>issue.toLowerCase().includes(u.toLowerCase()));
+  if(!issue)return false;
+  const cls=(sclass||'').trim();
+  const iss=issue.toLowerCase();
+  // Class A or B = always urgent regardless of issue type
+  if(cls==='Class A'||cls==='Class B')return true;
+  // Any power or AC/cooling related issue = urgent regardless of class
+  return URGENT_KEYWORDS.some(k=>iss.includes(k));
 }
 
 // AUTH
