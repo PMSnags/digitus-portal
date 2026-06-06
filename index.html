@@ -228,7 +228,7 @@ const PP=50;
 let S={user:null,role:'guest',name:'Guest',tab:'dashboard',
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
-  tf:{q:'',status:'',region:'',issue:''},
+  tf:{q:'',status:'',region:'',issue:'',sclass:''},
   lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
@@ -559,6 +559,7 @@ async function rTix(){
   if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_raw.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
   if(f.status)q=q.eq('status',f.status);
   if(f.region)q=q.eq('region',f.region);
+  if(f.sclass)q=q.eq('site_class',f.sclass);
   const fr=(S.tpage-1)*PP,to=fr+PP-1;
   const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
   S.tickets=data||[];S.ttotal=count||0;
@@ -598,8 +599,20 @@ async function rTix(){
       <option value="desc"${srt.dir==='desc'?' selected':''}>Newest first</option>
       <option value="asc"${srt.dir==='asc'?' selected':''}>Oldest first</option>
     </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
+      <option value="">All classes</option>
+      <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
+      <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
+      <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
+      <option value="">All classes</option>
+      <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
+      <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
+      <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
     <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
     ${ce?'<button class="btn bpri" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
   </div>
@@ -974,6 +987,7 @@ async function dlTix(){
   if(f.q)cq=cq.or('tt_number.ilike.%'+f.q+'%,site_id_raw.ilike.%'+f.q+'%,site_id_canonical.ilike.%'+f.q+'%,tt_issue.ilike.%'+f.q+'%,bo_team.ilike.%'+f.q+'%');
   if(f.status)cq=cq.eq('status',f.status);
   if(f.region)cq=cq.eq('region',f.region);
+  if(f.sclass)cq=cq.eq('site_class',f.sclass);
   var cr=await cq;
   var total=cr.count||0;
   if(!total){toast('No data to download',1);return;}
@@ -984,6 +998,7 @@ async function dlTix(){
     if(f.q)q=q.or('tt_number.ilike.%'+f.q+'%,site_id_raw.ilike.%'+f.q+'%,site_id_canonical.ilike.%'+f.q+'%,tt_issue.ilike.%'+f.q+'%,bo_team.ilike.%'+f.q+'%');
     if(f.status)q=q.eq('status',f.status);
     if(f.region)q=q.eq('region',f.region);
+    if(f.sclass)q=q.eq('site_class',f.sclass);
     var res=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(from,from+BATCH-1);
     if(res.error){toast('Error: '+res.error.message,1);return;}
     var batch=res.data||[];
