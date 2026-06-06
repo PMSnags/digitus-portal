@@ -575,6 +575,8 @@ async function rTix(){
     {id:'site_class',l:'Class',w:'75px'},
     {id:'status',l:'Status',w:'105px'},
     {id:'tt_date_attended',l:'Attended',w:'95px'},
+    {id:'updated_by',l:'Last updated by',w:'110px'},
+    {id:'_edit',l:'',w:'60px'},
   ];
 
   mc.innerHTML=`
@@ -603,6 +605,7 @@ async function rTix(){
   </div>
   <div class="card"><div class="tw"><table><thead><tr>
     ${cols.map(c=>{
+      if(c.id==='_edit')return`<th style="width:${c.w};cursor:default"></th>`;
       const isSorted=srt.col===c.id;
       return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc}'};S.tpage=1;rTix()"
         class="${isSorted?'sort-'+srt.dir:''}">${c.l}</th>`;
@@ -620,6 +623,8 @@ async function rTix(){
         <td>${cbadge(t.site_class)}</td>
         <td>${ce?`<select class="ssel" onchange="updSt(${t.id},this.value)">${['Open','Attended','Pending','Closed'].map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}</select>`:sbadge(t.status)}</td>
         <td style="font-size:12px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${t.updated_by||'—'}</td>
+        <td style="width:60px"><button class="btn bsm" style="white-space:nowrap" onclick="editTicket(${t.id})">Edit</button></td>
       </tr>`).join('')}
   </tbody></table></div>
   ${pgn(S.ttotal,S.tpage,'S.tpage','rTix')}
@@ -992,6 +997,122 @@ async function dlTix(){
 }
 
 
+
+// EDIT TICKET PANEL
+function editTicket(id){
+  const t=S.tickets.find(x=>x.id===id);
+  if(!t){toast('Ticket not found',1);return;}
+  // Remove existing panel if open
+  const existing=document.getElementById('edit-panel');
+  if(existing)existing.remove();
+
+  const bo=S.staff.filter(s=>s.role_type==='bo_team').map(s=>`<option${t.bo_team===s.name?' selected':''}>${s.name}</option>`).join('');
+  const tc=S.staff.filter(s=>s.role_type==='tech').map(s=>`<option${t.tech_name===s.name?' selected':''}>${s.name}</option>`).join('');
+  const iss=(S.lkp.issue_type||[]).map(i=>`<option${t.tt_issue===i?' selected':''}>${i}</option>`).join('');
+
+  const panel=document.createElement('div');
+  panel.id='edit-panel';
+  panel.style.cssText='position:fixed;top:0;right:0;width:480px;height:100vh;background:#fff;border-left:1px solid #e5e5e5;z-index:500;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.08)';
+  panel.innerHTML=`
+    <div style="background:var(--dark);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#fff">Edit Ticket</div>
+        <div style="font-size:11px;color:#888;margin-top:1px;font-family:monospace">${t.tt_number||''}</div>
+      </div>
+      <button onclick="document.getElementById('edit-panel').remove()" style="background:transparent;border:1px solid #444;color:#aaa;padding:5px 12px;font-size:12px;border-radius:4px;cursor:pointer">Close</button>
+    </div>
+    <div style="padding:20px">
+      <div style="background:#f9f9f7;border:1px solid #e5e5e5;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#666">
+        <div><strong>Site:</strong> ${t.site_id_raw||'—'} &rarr; <strong>${t.site_id_canonical||'—'}</strong></div>
+        <div style="margin-top:3px"><strong>Class:</strong> ${t.site_class||'—'} &nbsp;|&nbsp; <strong>Region:</strong> ${t.region} &nbsp;|&nbsp; <strong>Date:</strong> ${t.ticket_date||'—'}</div>
+        ${t.updated_by?`<div style="margin-top:3px;color:#999">Last updated by: ${t.updated_by}</div>`:''}
+      </div>
+      <div class="fg">
+        <div class="ff full"><label>Issue Type</label>
+          <select id="et-issue"><option value="">— no change —</option>${iss}</select></div>
+        <div class="ff"><label>Status</label>
+          <select id="et-status">
+            ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}
+          </select></div>
+        <div class="ff"><label>Date Attended</label>
+          <input type="date" id="et-attended" value="${t.tt_date_attended||''}"></div>
+        <div class="ff"><label>BO Team</label>
+          <select id="et-bo"><option value="">— no change —</option>${bo}</select></div>
+        <div class="ff"><label>Tech Name</label>
+          <select id="et-tech"><option value="">— no change —</option>${tc}</select></div>
+        <div class="ff"><label>Battery Status</label>
+          <select id="et-battery">
+            <option value="">— no change —</option>
+            ${(S.lkp.battery_status||[]).map(b=>`<option${t.battery_status===b?' selected':''}>${b}</option>`).join('')}
+          </select></div>
+        <div class="ff full"><label>Remarks</label>
+          <textarea id="et-remarks" placeholder="General remarks…">${t.remarks||''}</textarea></div>
+        <div class="ff full"><label>Resolution</label>
+          <textarea id="et-resolution" placeholder="Resolution details…">${t.resolution||''}</textarea></div>
+        <div class="ff full"><label>Closure Remarks</label>
+          <textarea id="et-closure" placeholder="Closure notes…">${t.closure_remarks||''}</textarea></div>
+        <div class="ff full"><label>Battery Remarks</label>
+          <input type="text" id="et-battery-remarks" value="${t.battery_remarks||''}" placeholder="Battery remarks…"></div>
+        <div class="ff"><label>Outage Start</label>
+          <input type="datetime-local" id="et-outage" value="${t.outage_start?t.outage_start.slice(0,16):''}"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #e5e5e5">
+        <button class="btn bpri" style="flex:1;justify-content:center" onclick="saveTicketEdit(${id})">Save changes</button>
+        <button class="btn" onclick="document.getElementById('edit-panel').remove()">Cancel</button>
+      </div>
+      <div id="et-msg" style="font-size:12px;margin-top:10px;display:none"></div>
+    </div>`;
+  document.body.appendChild(panel);
+}
+
+async function saveTicketEdit(id){
+  const payload={updated_by:S.name};
+  const iss=document.getElementById('et-issue').value;
+  const st=document.getElementById('et-status').value;
+  const at=document.getElementById('et-attended').value;
+  const bo=document.getElementById('et-bo').value;
+  const tc=document.getElementById('et-tech').value;
+  const bt=document.getElementById('et-battery').value;
+  const rm=document.getElementById('et-remarks').value.trim();
+  const rs=document.getElementById('et-resolution').value.trim();
+  const cl=document.getElementById('et-closure').value.trim();
+  const br=document.getElementById('et-battery-remarks').value.trim();
+  const og=document.getElementById('et-outage').value;
+
+  if(iss)payload.tt_issue=iss;
+  if(st)payload.status=st;
+  if(at)payload.tt_date_attended=at; else payload.tt_date_attended=null;
+  if(bo)payload.bo_team=bo;
+  if(tc)payload.tech_name=tc;
+  if(bt)payload.battery_status=bt;
+  payload.remarks=rm||null;
+  payload.resolution=rs||null;
+  payload.closure_remarks=cl||null;
+  payload.battery_remarks=br||null;
+  if(og)payload.outage_start=og;
+
+  const msg=document.getElementById('et-msg');
+  const{error}=await sb.from('tickets').update(payload).eq('id',id);
+  if(error){
+    msg.textContent='Error: '+error.message;
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:10px';
+    return;
+  }
+  // Update local state
+  const t=S.tickets.find(x=>x.id===id);
+  if(t){
+    if(iss)t.tt_issue=iss;
+    if(st)t.status=st;
+    if(bo)t.bo_team=bo;
+    if(tc)t.tech_name=tc;
+    t.tt_date_attended=at||null;
+    t.updated_by=S.name;
+  }
+  toast('Ticket updated');
+  document.getElementById('edit-panel').remove();
+  rTix();
+}
+
 // BULK UPDATE
 function rBulk(){
   const mc=document.getElementById('mc');
@@ -1016,6 +1137,13 @@ function rBulk(){
             </select>
           </div>
           <div class="ff">
+            <label>Update Issue Type</label>
+            <select id="bk-issue">
+              <option value="">— no change —</option>
+              ${(S.lkp.issue_type||[]).map(i=>`<option>${i}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ff">
             <label>Update BO Team</label>
             <select id="bk-bo">
               <option value="">— no change —</option>
@@ -1033,13 +1161,24 @@ function rBulk(){
             <label>Update Date Attended</label>
             <input type="date" id="bk-attended">
           </div>
+          <div class="ff">
+            <label>Update Battery Status</label>
+            <select id="bk-battery">
+              <option value="">— no change —</option>
+              ${(S.lkp.battery_status||[]).map(b=>`<option>${b}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ff full">
+            <label>Update Remarks</label>
+            <textarea id="bk-remarks2" placeholder="General remarks (leave blank to skip)"></textarea>
+          </div>
           <div class="ff full">
             <label>Update Closure Remarks</label>
-            <textarea id="bk-remarks" placeholder="Closure remarks to apply to all selected tickets (leave blank to skip)"></textarea>
+            <textarea id="bk-remarks" placeholder="Closure remarks (leave blank to skip)"></textarea>
           </div>
           <div class="ff full">
             <label>Update Resolution</label>
-            <textarea id="bk-resolution" placeholder="Resolution text to apply to all selected tickets (leave blank to skip)"></textarea>
+            <textarea id="bk-resolution" placeholder="Resolution text (leave blank to skip)"></textarea>
           </div>
         </div>
         <div class="fa">
@@ -1060,16 +1199,22 @@ async function runBulk(){
   // Build update payload — only include fields that have values
   const payload={updated_by:S.name};
   const st=document.getElementById('bk-status').value;
+  const iss=document.getElementById('bk-issue').value;
   const bo=document.getElementById('bk-bo').value;
   const tc=document.getElementById('bk-tech').value;
   const at=document.getElementById('bk-attended').value;
+  const bt=document.getElementById('bk-battery').value;
   const rm=document.getElementById('bk-remarks').value.trim();
+  const rm2=document.getElementById('bk-remarks2').value.trim();
   const rs=document.getElementById('bk-resolution').value.trim();
   if(st)payload.status=st;
+  if(iss)payload.tt_issue=iss;
   if(bo)payload.bo_team=bo;
   if(tc)payload.tech_name=tc;
   if(at)payload.tt_date_attended=at;
+  if(bt)payload.battery_status=bt;
   if(rm)payload.closure_remarks=rm;
+  if(rm2)payload.remarks=rm2;
   if(rs)payload.resolution=rs;
 
   if(Object.keys(payload).length===1){toast('Select at least one field to update',1);return;}
