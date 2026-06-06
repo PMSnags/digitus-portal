@@ -211,6 +211,10 @@ tr:hover td{background:#fafafa}
       <button class="tb-logout" onclick="doLogout()">Sign out</button>
     </div>
   </div>
+  <div id="preview-bar" style="display:none;background:#1d4ed8;padding:7px 20px;display:none;align-items:center;justify-content:space-between">
+    <span style="font-size:12px;color:#fff">&#128065; Previewing as: <strong id="preview-name"></strong> (<span id="preview-role"></span>) &mdash; this is a simulation only, no changes will be saved</span>
+    <button onclick="exitPreview()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;font-size:12px;border-radius:4px;cursor:pointer">Exit preview</button>
+  </div>
   <div class="nav" id="nav"></div>
   <div class="main" id="mc"></div>
 </div>
@@ -843,6 +847,7 @@ async function rStaff(){
             <span id="uact-view-${u.id}">
               <button class="btn bsm" onclick="editUsr('${u.id}')">Edit</button>
               <button class="btn bsm" onclick="togUsr('${u.id}',${u.is_active})">${u.is_active?'Deactivate':'Activate'}</button>
+              <button class="btn bsm" onclick="previewAs('${u.role}','${u.display_name}')" title="See portal as this user" style="color:var(--blue);border-color:var(--blue-lt)">&#128065; Preview</button>
             </span>
             <span id="uact-edit-${u.id}" style="display:none;gap:5px">
               <button class="btn bsm bdark" onclick="saveUsr('${u.id}')">Save</button>
@@ -1181,6 +1186,53 @@ async function changePassword(){
   toast('Password updated');
 }
 
+
+
+// PREVIEW AS USER
+let S_BACKUP = null;
+
+function previewAs(role, name){
+  // Save current state
+  S_BACKUP = {role: S.role, name: S.name};
+  // Apply simulated role
+  S.role = role;
+  S.name = name;
+  // Show preview banner
+  const bar = document.getElementById('preview-bar');
+  bar.style.display = 'flex';
+  document.getElementById('preview-name').textContent = name;
+  document.getElementById('preview-role').textContent = role;
+  // Update topbar pill
+  document.getElementById('upill').textContent = name + ' (preview)';
+  const rb = document.getElementById('urole');
+  rb.textContent = role;
+  const rc = {admin:'tb-role-admin',noc:'tb-role-noc',management:'tb-role-management',guest:'tb-role-guest'};
+  rb.className = 'tb-role ' + (rc[role] || rc.guest);
+  // Re-render nav and dashboard with simulated role
+  renderNav();
+  renderTab('dashboard');
+  toast('Previewing as ' + role + ' — ' + name);
+}
+
+function exitPreview(){
+  if(!S_BACKUP) return;
+  // Restore real state
+  S.role = S_BACKUP.role;
+  S.name = S_BACKUP.name;
+  S_BACKUP = null;
+  // Hide banner
+  document.getElementById('preview-bar').style.display = 'none';
+  // Restore topbar
+  document.getElementById('upill').textContent = S.name;
+  const rb = document.getElementById('urole');
+  rb.textContent = S.role;
+  const rc = {admin:'tb-role-admin',noc:'tb-role-noc',management:'tb-role-management',guest:'tb-role-guest'};
+  rb.className = 'tb-role ' + (rc[S.role] || rc.guest);
+  // Re-render with real role
+  renderNav();
+  renderTab('dashboard');
+  toast('Exited preview — back to admin view');
+}
 
 // USER EDIT FUNCTIONS
 function editUsr(id){
