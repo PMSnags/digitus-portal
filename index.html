@@ -825,6 +825,15 @@ async function rKPI(){
     </div>
   </div>
 
+  <!-- KPI Summary Row -->
+  <div class="mrow">
+    <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
+    <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
+
+    <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
+    <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
+  </div>
+
     <div class="kpi-grid">
     <!-- Site class summary -->
     <div class="card"><div class="ch"><div class="ct">Ticket summary by site class</div></div><div class="cb">
@@ -863,14 +872,6 @@ async function rKPI(){
     </div></div>
   </div>
 
-  <!-- KPI Summary Row -->
-  <div class="mrow">
-    <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
-    <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
-
-    <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
-    <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
-  </div>
 
 
 
