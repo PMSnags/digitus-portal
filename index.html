@@ -71,13 +71,13 @@ textarea{resize:vertical;min-height:68px;line-height:1.55}
 
 /* APP SHELL */
 #app{display:none;flex-direction:column;min-height:100vh}
-.topbar{background:var(--dark);height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:200;border-bottom:1px solid var(--dark3)}
-.topnav{background:var(--dark);border-bottom:2px solid var(--dark3);display:flex;align-items:center;padding:0 16px;overflow-x:auto;flex-shrink:0;gap:2px}
-.tnav-tab{display:inline-flex;align-items:center;gap:6px;padding:0 13px;height:40px;font-size:12px;color:#555;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:color .12s;font-family:inherit;letter-spacing:-.1px}
+.topbar{background:var(--dark);height:50px;display:flex;align-items:center;padding:0 0 0 20px;position:sticky;top:0;z-index:200;border-bottom:1px solid #1a1a1a}
+.topnav{display:none}
+.tnav-tab{display:inline-flex;align-items:center;gap:6px;padding:0 12px;height:50px;font-size:12px;color:#555;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:color .12s;font-family:inherit;letter-spacing:-.1px}
 .tnav-tab i{font-size:14px}
-.tnav-tab:hover{color:#bbb;background:rgba(255,255,255,.04)}
-.tnav-tab.active{color:#fff;border-bottom-color:var(--pri)}
-.tnav-sep{width:0.5px;height:18px;background:#2a2a2a;margin:0 6px;flex-shrink:0;align-self:center}
+.tnav-tab:hover{color:#bbb;background:rgba(255,255,255,.05)}
+.tnav-tab.active{color:#fff;border-bottom-color:var(--pri);background:rgba(255,255,255,.04)}
+.tnav-sep{width:0.5px;height:20px;background:#2a2a2a;margin:0 4px;flex-shrink:0;align-self:center}
 .tb-brand{display:flex;align-items:center;gap:9px}
 .tb-icon{width:24px;height:24px;background:var(--pri);border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;letter-spacing:.3px}
 .tb-name{font-size:12px;font-weight:600;color:#e5e5e5;letter-spacing:.2px}
@@ -220,25 +220,22 @@ tr:hover td{background:#fafafa}
 <!-- APP -->
 <div id="app" style="display:none;flex-direction:column;min-height:100vh">
   <div class="topbar">
-    <div class="tb-brand">
-      <div class="tb-icon">DG</div>
-      <div>
-        <div class="tb-name">Digitus</div>
-        <div class="tb-sub">TT Tracker Portal</div>
-      </div>
+    <div style="display:flex;align-items:center;gap:10px;padding-right:16px;border-right:1px solid #222;flex-shrink:0">
+      <div class="tb-icon" style="width:28px;height:28px;font-size:11px">DG</div>
+      <div style="font-size:12px;font-weight:700;color:#e5e5e5;letter-spacing:.5px">DIGITUS</div>
     </div>
-    <div class="tb-right">
+    <div id="nav" style="display:flex;align-items:center;flex:1;overflow-x:auto;padding:0 4px"></div>
+    <div style="display:flex;align-items:center;gap:6px;padding:0 14px;flex-shrink:0;border-left:1px solid #222">
       <span id="upill" class="tb-user"></span>
       <span id="urole" class="tb-role"></span>
-      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="background:transparent;border:1px solid var(--dark3);color:#888;padding:5px 10px;font-size:12px;border-radius:var(--r);cursor:pointer">&#9788;</button>
-      <button class="tb-logout" onclick="doLogout()" style="margin-left:4px">Sign out</button>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="background:transparent;border:1px solid #333;color:#666;padding:4px 8px;font-size:12px;border-radius:var(--r);cursor:pointer">&#9788;</button>
+      <button onclick="doLogout()" style="background:transparent;border:1px solid #333;color:#666;padding:4px 10px;font-size:11px;border-radius:var(--r);cursor:pointer">Sign out</button>
     </div>
   </div>
   <div id="preview-bar" style="display:none;background:#1d4ed8;padding:7px 20px;align-items:center;justify-content:space-between;flex-shrink:0">
     <span style="font-size:12px;color:#fff">&#128065; Previewing as: <strong id="preview-name"></strong> (<span id="preview-role"></span>) &mdash; simulation only, no changes saved</span>
     <button onclick="exitPreview()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;font-size:12px;border-radius:4px;cursor:pointer">Exit preview</button>
   </div>
-  <div class="topnav" id="nav"></div>
   <div class="main" id="mc"></div>
 </div>
 <div class="toast" id="toast"></div>
