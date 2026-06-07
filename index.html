@@ -72,12 +72,12 @@ textarea{resize:vertical;min-height:68px;line-height:1.55}
 /* APP SHELL */
 #app{display:none;flex-direction:column;min-height:100vh}
 .topbar{background:var(--dark);height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:200;border-bottom:1px solid var(--dark3)}
-.topnav{background:var(--dark2);border-bottom:1px solid var(--dark3);display:flex;align-items:center;padding:0 20px;overflow-x:auto;flex-shrink:0}
-.tnav-tab{display:flex;align-items:center;gap:5px;padding:0 12px;height:38px;font-size:12px;color:#666;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:color .15s}
+.topnav{background:var(--dark);border-bottom:2px solid var(--dark3);display:flex;align-items:center;padding:0 16px;overflow-x:auto;flex-shrink:0;gap:2px}
+.tnav-tab{display:inline-flex;align-items:center;gap:6px;padding:0 13px;height:40px;font-size:12px;color:#555;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:color .12s;font-family:inherit;letter-spacing:-.1px}
 .tnav-tab i{font-size:14px}
-.tnav-tab:hover{color:#bbb}
+.tnav-tab:hover{color:#bbb;background:rgba(255,255,255,.04)}
 .tnav-tab.active{color:#fff;border-bottom-color:var(--pri)}
-.tnav-sep{width:0.5px;height:16px;background:var(--dark3);margin:0 4px;flex-shrink:0}
+.tnav-sep{width:0.5px;height:18px;background:#2a2a2a;margin:0 6px;flex-shrink:0;align-self:center}
 .tb-brand{display:flex;align-items:center;gap:9px}
 .tb-icon{width:24px;height:24px;background:var(--pri);border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;letter-spacing:.3px}
 .tb-name{font-size:12px;font-weight:600;color:#e5e5e5;letter-spacing:.2px}
