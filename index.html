@@ -355,7 +355,11 @@ function renderNav(){
   });
   document.getElementById('nav').innerHTML=html;
 }
-function renderTab(t){S.tab=t;renderNav();document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
+function renderTab(t){
+  S.tab=t;
+  renderNav();
+  document.getElementById('mc').innerHTML='<div class="loading">Loading…</div>';
+  if(t==='dashboard'){startAutoRefresh();}else{stopAutoRefresh();}
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
   else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
@@ -407,6 +411,7 @@ async function rDash(){
   const topRep=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const rec=recRes.data||[];
   const now=new Date();
+  _lastRefresh=now;
   const timeStr=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   const dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
@@ -461,7 +466,10 @@ async function rDash(){
   </style>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <div style="font-size:13px;font-weight:500;color:var(--text)">Dashboard</div>
-    <div style="font-size:11px;color:var(--text2)">${dateStr} &nbsp;&middot;&nbsp; <span class="live-dot"></span>${timeStr}</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="refresh-stamp" style="font-size:11px;color:var(--text3)"></span>
+      <div style="font-size:11px;color:var(--text2)">${dateStr} &nbsp;&middot;&nbsp; <span class="live-dot"></span>${timeStr}</div>
+    </div>
   </div>
   <div class="dash-shell">
 
@@ -1804,6 +1812,43 @@ function toggleTheme(){
     }
   }catch(e){}
 })();
+
+
+// AUTO-REFRESH
+let _refreshTimer = null;
+let _lastRefresh = null;
+const REFRESH_MS = 60000; // 60 seconds
+
+function startAutoRefresh(){
+  stopAutoRefresh();
+  _refreshTimer = setInterval(()=>{
+    if(S.tab === 'dashboard' && !document.hidden){
+      rDash();
+      _lastRefresh = new Date();
+      updateRefreshStamp();
+    }
+  }, REFRESH_MS);
+}
+
+function stopAutoRefresh(){
+  if(_refreshTimer){clearInterval(_refreshTimer);_refreshTimer=null;}
+}
+
+function updateRefreshStamp(){
+  const el = document.getElementById('refresh-stamp');
+  if(el && _lastRefresh){
+    el.textContent = 'Updated ' + _lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+}
+
+// Refresh immediately when tab becomes visible again
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && S.tab === 'dashboard' && S.user !== null){
+    rDash();
+    _lastRefresh = new Date();
+    updateRefreshStamp();
+  }
+});
 
 // HELPERS
 function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
