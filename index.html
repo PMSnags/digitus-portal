@@ -761,6 +761,57 @@ async function rKPI(){
   const maxAge=agingTix.length?agingTix[0].days:1;
 
   mc.innerHTML=`
+  <!-- KPI Summary Row -->
+  <div class="mrow">
+    <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
+    <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
+
+    <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
+    <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
+  </div>
+
+    <div class="kpi-grid">
+    <!-- Site class summary -->
+    <div class="card"><div class="ch"><div class="ct">Ticket summary by site class</div></div><div class="cb">
+      ${Object.entries(classCounts).map(([cls,d])=>{
+        const pct=d.total>0?Math.round(d.closed/d.total*100):0;
+        return`<div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span>${cbadge(cls)}</span>
+            <span style="font-size:12px;color:var(--text2)">${d.total.toLocaleString()} total &nbsp;·&nbsp; ${pct}% resolved</span>
+          </div>
+          <div style="display:flex;gap:4px;height:10px;border-radius:5px;overflow:hidden">
+            <div style="flex:${d.closed};background:var(--green)" title="Closed: ${d.closed.toLocaleString()}"></div>
+            <div style="flex:${d.open};background:var(--pri)" title="Open/Pending: ${d.open.toLocaleString()}"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:3px">
+            <span style="color:var(--green)">Closed: ${d.closed.toLocaleString()}</span>
+            <span style="color:var(--pri)">Open/Pending: ${d.open.toLocaleString()}</span>
+          </div>
+        </div>`;}).join('')}
+    </div></div>
+
+    <!-- Resolution rate gauge -->
+    <div class="card"><div class="ch"><div class="ct">Resolution rate</div></div><div class="cb">
+      <div style="text-align:center;padding:10px 0 16px">
+        <div style="font-size:52px;font-weight:700;color:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'}">${resRate}%</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">${C.toLocaleString()} closed of ${T.toLocaleString()} total</div>
+      </div>
+      <div style="height:10px;background:var(--gray-lt);border-radius:5px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${resRate}%;background:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'};border-radius:5px;transition:width .5s"></div>
+      </div>
+      ${[['Closed',C,'var(--green)'],['Attended',A,'var(--blue)'],['Pending',P,'var(--amber)'],['Open',O,'var(--pri)']].map(([l,v,c])=>`
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="color:${c};font-weight:500">${l}</span>
+        <span style="color:var(--text2)">${v.toLocaleString()} (${T?Math.round(v/T*100):0}%)</span>
+      </div>`).join('')}
+    </div></div>
+  </div>
+
+
+
+
+
   <!-- 6-Month Bar Chart -->
   <div class="card" style="margin-bottom:12px">
     <div class="ch">
@@ -824,56 +875,6 @@ async function rKPI(){
         </div>`).join('')}
     </div>
   </div>
-
-  <!-- KPI Summary Row -->
-  <div class="mrow">
-    <div class="mc"><div class="ml">Resolution Rate</div><div class="mv" style="color:var(--green)">${resRate}%</div><div class="ms">${C.toLocaleString()} of ${T.toLocaleString()} closed</div></div>
-    <div class="mc"><div class="ml">Open Rate</div><div class="mv" style="color:var(--pri)">${openRate}%</div><div class="ms">${(O+P).toLocaleString()} tickets unresolved</div></div>
-
-    <div class="mc"><div class="ml">Repeated Sites</div><div class="mv" style="color:var(--amber)">${repeated.length}</div><div class="ms">Sites with >1 ticket</div></div>
-    <div class="mc"><div class="ml">Oldest Open Ticket</div><div class="mv" style="color:var(--amber)">${agingTix.length?agingTix[0].days:0}d</div><div class="ms">${agingTix.length?agingTix[0].site_id_canonical||'—':'No open tickets'}</div></div>
-  </div>
-
-    <div class="kpi-grid">
-    <!-- Site class summary -->
-    <div class="card"><div class="ch"><div class="ct">Ticket summary by site class</div></div><div class="cb">
-      ${Object.entries(classCounts).map(([cls,d])=>{
-        const pct=d.total>0?Math.round(d.closed/d.total*100):0;
-        return`<div style="margin-bottom:14px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span>${cbadge(cls)}</span>
-            <span style="font-size:12px;color:var(--text2)">${d.total.toLocaleString()} total &nbsp;·&nbsp; ${pct}% resolved</span>
-          </div>
-          <div style="display:flex;gap:4px;height:10px;border-radius:5px;overflow:hidden">
-            <div style="flex:${d.closed};background:var(--green)" title="Closed: ${d.closed.toLocaleString()}"></div>
-            <div style="flex:${d.open};background:var(--pri)" title="Open/Pending: ${d.open.toLocaleString()}"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:3px">
-            <span style="color:var(--green)">Closed: ${d.closed.toLocaleString()}</span>
-            <span style="color:var(--pri)">Open/Pending: ${d.open.toLocaleString()}</span>
-          </div>
-        </div>`;}).join('')}
-    </div></div>
-
-    <!-- Resolution rate gauge -->
-    <div class="card"><div class="ch"><div class="ct">Resolution rate</div></div><div class="cb">
-      <div style="text-align:center;padding:10px 0 16px">
-        <div style="font-size:52px;font-weight:700;color:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'}">${resRate}%</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:4px">${C.toLocaleString()} closed of ${T.toLocaleString()} total</div>
-      </div>
-      <div style="height:10px;background:var(--gray-lt);border-radius:5px;overflow:hidden;margin-bottom:12px">
-        <div style="height:100%;width:${resRate}%;background:${resRate>=80?'var(--green)':resRate>=50?'var(--amber)':'var(--pri)'};border-radius:5px;transition:width .5s"></div>
-      </div>
-      ${[['Closed',C,'var(--green)'],['Attended',A,'var(--blue)'],['Pending',P,'var(--amber)'],['Open',O,'var(--pri)']].map(([l,v,c])=>`
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <span style="color:${c};font-weight:500">${l}</span>
-        <span style="color:var(--text2)">${v.toLocaleString()} (${T?Math.round(v/T*100):0}%)</span>
-      </div>`).join('')}
-    </div></div>
-  </div>
-
-
-
 
   <!-- Repeated sites -->
   <div class="card"><div class="ch"><div class="ct">Top repeated sites</div><span style="font-size:12px;color:var(--text3)">Sites with more than one ticket</span></div><div class="cb">
