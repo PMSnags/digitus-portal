@@ -1009,6 +1009,8 @@ async function rSite(raw){
   document.getElementById('f6').value=can;
   const ok=document.getElementById('srok'),amb=document.getElementById('sramb');
   ok.style.display='none';amb.style.display='none';
+  document.getElementById('nt-2').style.borderColor='';
+  document.getElementById('nt-7').style.borderColor='';
   if(!can)return;
   const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
   let site=null;
@@ -2009,7 +2011,7 @@ function openNewTicketPanel(){
     <div style="padding:18px;flex:1">
       <div class="fg">
         <div class="ff full"><label>TT / IM Number *</label><input type="text" id="nt-1" placeholder="e.g. IM8400001"></div>
-        <div class="ff full"><label>Region *</label>
+        <div class="ff full"><label>Region * <span style="font-size:9px;color:var(--text3)">(auto-filled from site ID or select manually)</span></label>
           <select id="nt-2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select>
         </div>
         <div class="ff full"><label>Site ID (raw) *</label>
@@ -2048,6 +2050,8 @@ async function ntResolveSite(raw){
   const ok=document.getElementById('nt-srok');
   const amb=document.getElementById('nt-sramb');
   ok.style.display='none';amb.style.display='none';
+  document.getElementById('nt-2').style.borderColor='';
+  document.getElementById('nt-7').style.borderColor='';
   if(!can)return;
   const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
   let site=null;
@@ -2055,15 +2059,17 @@ async function ntResolveSite(raw){
   if(site){
     document.getElementById('nt-6').value=site.site_id;
     document.getElementById('nt-7').value=site.site_class||'';
-    ok.innerHTML='&#10003; Matched: <strong>'+site.site_id+'</strong> &mdash; '+( site.site_class||'')+' &mdash; '+(site.region||'');
+    document.getElementById('nt-7').style.borderColor='var(--green)';
+    document.getElementById('nt-2').value=site.region||'';
+    document.getElementById('nt-2').style.borderColor='var(--green)';
+    ok.innerHTML='&#10003; Matched: <strong>'+site.site_id+'</strong> &mdash; '+(site.site_class||'')+'  &mdash; '+(site.region||'');
     ok.style.display='block';
   }else{
-    amb.innerHTML='&#9888; <strong>'+can+'</strong> not found in MDB &mdash; please select site class manually below';
+    amb.innerHTML='&#9888; <strong>'+can+'</strong> not found in MDB &mdash; please select region and site class manually';
     amb.style.display='block';
     document.getElementById('nt-7').value='';
-    // Show site class select for manual override
-    const sc=document.getElementById('nt-7');
-    if(sc)sc.style.borderColor='var(--amber)';
+    document.getElementById('nt-7').style.borderColor='var(--amber)';
+    document.getElementById('nt-2').style.borderColor='var(--amber)';
   }
 }
 
