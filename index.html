@@ -248,7 +248,7 @@ const PP=50;
 let S={user:null,role:'guest',name:'Guest',tab:'dashboard',dashFilter:{region:'',sclass:''},
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
-  tf:{q:'',status:'',region:'',issue:'',sclass:''},
+  tf:{q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''},
   lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
@@ -407,8 +407,8 @@ async function rDash(){
     fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C').eq('status','Closed'),
     // Date range
     fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:true}).limit(1)),
-    // Repeat counts per site — GLOBAL (no filter, counts across all regions/classes)
-    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
+    // Repeat counts per site — fetch paginated below, placeholder here
+    sb.from('tickets').select('site_id_canonical',{count:'exact',head:true}).not('site_id_canonical','is',null),
     // Live feed — open tickets only
     fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
     // Urgent
@@ -427,9 +427,25 @@ async function rDash(){
   const maxDateRes=await fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:false}).limit(1));
   const maxDate=(maxDateRes.data&&maxDateRes.data[0])?maxDateRes.data[0].ticket_date:'—';
 
-  // Repeat counts
+  // Repeat counts + last seen — paginated fetch
   const siteCounts={};
-  (siteRepRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
+  const siteLastSeen={};
+  const totalSites=siteRepRes.count||0;
+  if(totalSites>0){
+    let from=0;const SBATCH=1000;let fetching=true;
+    while(fetching){
+      const{data:sd}=await sb.from('tickets').select('site_id_canonical,ticket_date').not('site_id_canonical','is',null).range(from,from+SBATCH-1);
+      (sd||[]).forEach(r=>{
+        if(r.site_id_canonical){
+          siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;
+          if(!siteLastSeen[r.site_id_canonical]||r.ticket_date>siteLastSeen[r.site_id_canonical]){
+            siteLastSeen[r.site_id_canonical]=r.ticket_date;
+          }
+        }
+      });
+      if(!sd||sd.length<SBATCH)fetching=false;else from+=SBATCH;
+    }
+  }
 
   // Urgent filtered
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
@@ -452,7 +468,8 @@ async function rDash(){
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
       <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border)">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}" title="${repCnt>1?'Click to see all tickets for this site':''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
       <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
     </tr>`;
   };
@@ -564,7 +581,7 @@ async function rDash(){
       <div class="dpanel-body" style="max-height:240px;overflow-y:auto">
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <colgroup>
-            <col style="width:110px"><col style="width:75px"><col><col style="width:100px"><col style="width:95px"><col style="width:40px"><col style="width:55px">
+            <col style="width:105px"><col style="width:72px"><col><col style="width:95px"><col style="width:90px"><col style="width:38px"><col style="width:88px"><col style="width:52px">
           </colgroup>
           <thead style="position:sticky;top:0;z-index:1">
             <tr style="background:var(--surf2)">
@@ -573,7 +590,8 @@ async function rDash(){
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Issue</th>
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Class</th>
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Date opened</th>
-              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Rpt</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)" title="Click count to filter by site">Rpt</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Last seen</th>
               <th style="padding:6px 10px;border-bottom:0.5px solid var(--border)"></th>
             </tr>
           </thead>
@@ -594,7 +612,7 @@ async function rDash(){
       <div class="dpanel-body">
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <colgroup>
-            <col style="width:110px"><col style="width:75px"><col><col style="width:100px"><col style="width:95px"><col style="width:40px"><col style="width:55px">
+            <col style="width:105px"><col style="width:72px"><col><col style="width:95px"><col style="width:90px"><col style="width:38px"><col style="width:88px"><col style="width:52px">
           </colgroup>
           <thead style="position:sticky;top:0;z-index:1">
             <tr style="background:var(--surf2)">
@@ -603,7 +621,8 @@ async function rDash(){
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Issue</th>
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Class</th>
               <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Date opened</th>
-              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Rpt</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)" title="Click count to filter by site">Rpt</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Last seen</th>
               <th style="padding:6px 10px;border-bottom:0.5px solid var(--border)"></th>
             </tr>
           </thead>
@@ -907,14 +926,28 @@ async function rTix(){
       <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
       <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
     </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:120px">
+      <option value="">Any repeat count</option>
+      <option value="2"${f.repeat_min==='2'?' selected':''}>Repeated (2+)</option>
+      <option value="5"${f.repeat_min==='5'?' selected':''}>5+ tickets</option>
+      <option value="10"${f.repeat_min==='10'?' selected':''}>10+ tickets</option>
+      <option value="20"${f.repeat_min==='20'?' selected':''}>20+ tickets</option>
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
     <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
       <option value="">All classes</option>
       <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
       <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
       <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
     </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:120px">
+      <option value="">Any repeat count</option>
+      <option value="2"${f.repeat_min==='2'?' selected':''}>Repeated (2+)</option>
+      <option value="5"${f.repeat_min==='5'?' selected':''}>5+ tickets</option>
+      <option value="10"${f.repeat_min==='10'?' selected':''}>10+ tickets</option>
+      <option value="20"${f.repeat_min==='20'?' selected':''}>20+ tickets</option>
+    </select>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
     <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
     ${ce?'<button class="btn bpri" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
   </div>
@@ -1372,10 +1405,25 @@ function editTicket(id){
     </div>
     <div style="padding:20px">
       <div style="background:#f9f9f7;border:1px solid #e5e5e5;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#666">
-        <div><strong>Site:</strong> ${t.site_id_raw||'—'} &rarr; <strong>${t.site_id_canonical||'—'}</strong></div>
-        <div style="margin-top:3px"><strong>Class:</strong> ${t.site_class||'—'} &nbsp;|&nbsp; <strong>Region:</strong> ${t.region} &nbsp;|&nbsp; <strong>Date:</strong> ${t.ticket_date||'—'}</div>
-        ${t.updated_by?`<div style="margin-top:3px;color:#999">Last updated by: ${t.updated_by}</div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><strong>TT:</strong> ${t.tt_number||'—'} &nbsp;|&nbsp; <strong>Region:</strong> ${t.region} &nbsp;|&nbsp; <strong>Date:</strong> ${t.ticket_date||'—'}</div>
+          ${t.updated_by?`<div style="color:#999">Last updated by: ${t.updated_by}</div>`:''}
+        </div>
       </div>
+      <div class="fg">
+        <div class="ff"><label>Site ID (raw)</label><input type="text" id="et-site-raw" value="${t.site_id_raw||''}" placeholder="Raw site ID"></div>
+        <div class="ff"><label>Corrected Site ID</label>
+          <input type="text" id="et-site-can" value="${t.site_id_canonical||''}" placeholder="e.g. DXB1234" oninput="etResolveSite(this.value)">
+        </div>
+        <div class="ff"><label>Site Class</label>
+          <select id="et-site-class">
+            <option value="">— no change —</option>
+            ${['Class A','Class B','Class C'].map(c=>`<option value="${c}"${t.site_class===c?' selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="ff"><label>Site Type</label><input type="text" id="et-site-type" value="${t.site_type||''}" placeholder="Site type"></div>
+      </div>
+      <hr style="border:none;border-top:0.5px solid var(--border);margin:12px 0">
       <div class="fg">
         <div class="ff full"><label>Issue Type</label>
           <select id="et-issue"><option value="">— no change —</option>${iss}</select></div>
@@ -1414,8 +1462,30 @@ function editTicket(id){
   document.body.appendChild(panel);
 }
 
+
+async function etResolveSite(can){
+  if(!can||can.length<6)return;
+  const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
+  for(const c of cols){
+    const{data}=await sb.from('sites').select('*').eq(c,can).limit(1);
+    if(data&&data.length){
+      const s=data[0];
+      document.getElementById('et-site-class').value=s.site_class||'';
+      document.getElementById('et-site-type').value=s.site_type||'';
+      return;
+    }
+  }
+}
 async function saveTicketEdit(id){
   const payload={updated_by:S.name};
+  const siteRaw=document.getElementById('et-site-raw').value.trim();
+  const siteCan=document.getElementById('et-site-can').value.trim();
+  const siteCls=document.getElementById('et-site-class').value;
+  const siteTyp=document.getElementById('et-site-type').value.trim();
+  if(siteRaw)payload.site_id_raw=siteRaw;
+  if(siteCan)payload.site_id_canonical=siteCan;
+  if(siteCls)payload.site_class=siteCls;
+  if(siteTyp)payload.site_type=siteTyp;
   const iss=document.getElementById('et-issue').value;
   const st=document.getElementById('et-status').value;
   const at=document.getElementById('et-attended').value;
