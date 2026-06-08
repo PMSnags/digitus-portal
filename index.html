@@ -321,7 +321,8 @@ async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is
 
 // NAV
 function tabs_fn(){
-  const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'},{id:'kpi',l:'KPI Report'}];
+  const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'}];
+  if(S.role==='admin')t.push({id:'kpi',l:'KPI Report'});
   if(S.role!=='guest'){
     t.push({id:'new_ticket',l:'New Ticket'});
     t.push({id:'cleaner',l:'Site ID Cleaner'});
@@ -338,7 +339,7 @@ function tabs_fn(){
 function renderNav(){
   const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',
     new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',
-    profile:'ti-user',mstaff:'ti-users',mlkp:'ti-adjustments',backup:'ti-database-export'};
+    profile:'ti-user',kpi:'ti-chart-bar',mstaff:'ti-users',mlkp:'ti-adjustments',backup:'ti-database-export'};
   const tabs=tabs_fn();
   const mainTabs=['dashboard','tickets','kpi'];
   const opsTabs=['new_ticket','cleaner','bulk'];
@@ -443,18 +444,17 @@ async function rDash(){
   const ticketRow=(t,showUrg)=>{
     const repCnt=siteCounts[t.site_id_canonical]||1;
     const urg=showUrg&&isUrgent(t.tt_issue,t.site_class)&&(t.status==='Open'||t.status==='Pending');
-    return`<div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
-      style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;${urg?'background:#fff5f5;border-left:3px solid var(--pri);padding-left:9px':''}"
-      onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}'" onmouseout="this.style.background='${urg?'#fff5f5':'transparent'}'">
-      <span style="font-size:10px;font-family:monospace;color:var(--text2);width:80px;flex-shrink:0">${t.tt_number||'—'}</span>
-      <span style="font-size:11px;font-weight:500;width:62px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
-      <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.tt_issue||''}">${t.tt_issue||'—'}</span>
-      ${t.site_class?cbadge(t.site_class):''}
-      ${urg?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
-      <span style="font-size:10px;color:var(--text2);flex-shrink:0">${t.ticket_date||'—'}</span>
-      ${repCnt>1?`<span style="font-size:9px;font-weight:600;color:var(--amber);flex-shrink:0;min-width:28px;text-align:right" title="This site has ${repCnt} tickets">${repCnt}×</span>`:'<span style="min-width:28px"></span>'}
-      ${canEdit&&t.id?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0">Edit</button>`:''}
-    </div>`;
+    return`<tr onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
+      style="cursor:pointer;${urg?'background:#fff5f5;border-left:3px solid var(--pri)':''}"
+      onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}'" onmouseout="this.style.background='${urg?'#fff5f5':''}'">
+      <td style="padding:8px 12px;font-size:10px;font-family:monospace;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.tt_number||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:500;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_id_canonical||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border)">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
+    </tr>`;
   };
 
   mc.innerHTML=`
@@ -561,18 +561,27 @@ async function rDash(){
         <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent tickets &mdash; Class A/B + AC/Power issues</div>
         <span style="font-size:11px;color:#991b1b">${urgFiltered.length} open</span>
       </div>
-      <div class="col-hdr">
-        <span style="width:80px;flex-shrink:0">TT Number</span>
-        <span style="width:62px;flex-shrink:0">Site</span>
-        <span style="flex:1">Issue</span>
-        <span style="width:60px;flex-shrink:0">Class</span>
-        <span style="width:80px;flex-shrink:0">Date opened</span>
-        <span style="width:28px;flex-shrink:0;text-align:right">Rpt</span>
-        ${canEdit?'<span style="width:40px;flex-shrink:0"></span>':''}
-      </div>
-      <div class="dpanel-body" style="max-height:220px">
-        ${urgFiltered.length?urgFiltered.map(t=>ticketRow(t,true)).join('')
-          :'<div style="padding:12px;font-size:12px;color:var(--text2)">No urgent tickets</div>'}
+      <div class="dpanel-body" style="max-height:240px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+          <colgroup>
+            <col style="width:110px"><col style="width:75px"><col><col style="width:100px"><col style="width:95px"><col style="width:40px"><col style="width:55px">
+          </colgroup>
+          <thead style="position:sticky;top:0;z-index:1">
+            <tr style="background:var(--surf2)">
+              <th style="padding:6px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">TT Number</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Site</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Issue</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Class</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Date opened</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Rpt</th>
+              <th style="padding:6px 10px;border-bottom:0.5px solid var(--border)"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${urgFiltered.length?urgFiltered.map(t=>ticketRow(t,true)).join('')
+              :'<tr><td colspan="7" style="padding:14px 12px;font-size:12px;color:var(--text2)">No urgent tickets</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -582,18 +591,27 @@ async function rDash(){
         <div class="dpanel-title"><span class="live-dot"></span>Live feed &mdash; open tickets</div>
         <span style="font-size:10px;color:var(--text2)">newest first &nbsp;·&nbsp; auto-refreshes every 60s</span>
       </div>
-      <div class="col-hdr">
-        <span style="width:80px;flex-shrink:0">TT Number</span>
-        <span style="width:62px;flex-shrink:0">Site</span>
-        <span style="flex:1">Issue</span>
-        <span style="width:60px;flex-shrink:0">Class</span>
-        <span style="width:80px;flex-shrink:0">Date opened</span>
-        <span style="width:28px;flex-shrink:0;text-align:right">Rpt</span>
-        ${canEdit?'<span style="width:40px;flex-shrink:0"></span>':''}
-      </div>
       <div class="dpanel-body">
-        ${rec.length?rec.map(t=>ticketRow(t,false)).join('')
-          :'<div style="padding:12px;font-size:12px;color:var(--text2)">No open tickets</div>'}
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+          <colgroup>
+            <col style="width:110px"><col style="width:75px"><col><col style="width:100px"><col style="width:95px"><col style="width:40px"><col style="width:55px">
+          </colgroup>
+          <thead style="position:sticky;top:0;z-index:1">
+            <tr style="background:var(--surf2)">
+              <th style="padding:6px 12px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">TT Number</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Site</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Issue</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Class</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Date opened</th>
+              <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border)">Rpt</th>
+              <th style="padding:6px 10px;border-bottom:0.5px solid var(--border)"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rec.length?rec.map(t=>ticketRow(t,false)).join('')
+              :'<tr><td colspan="7" style="padding:14px 12px;font-size:12px;color:var(--text2)">No open tickets</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>`;
