@@ -437,6 +437,10 @@ async function rDash(){
     }
   });
 
+  // Cache site counts in S for live feed refresh
+  S._siteCounts=siteCounts;
+  S._siteLastSeen=siteLastSeen;
+
   // Urgent filtered
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
   const rec=recRes.data||[];
@@ -500,7 +504,6 @@ async function rDash(){
       </select>
       ${df.region||df.sclass?`<button class="btn bsm" onclick="S.dashFilter={region:'',sclass:''};rDash()" style="font-size:11px">Clear filters</button>`:''}
       ${S.role!=='guest'?`<button class="btn bpri" onclick="openNewTicketPanel()" style="font-size:11px;padding:5px 12px"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> New Ticket</button>`:''}
-      <span id="refresh-stamp" style="font-size:10px;color:var(--text3)"></span>
       <div style="font-size:11px;color:var(--text2)"><span class="live-dot"></span>${timeStr}</div>
     </div>
   </div>
@@ -566,7 +569,10 @@ async function rDash(){
     <div class="dpanel">
       <div class="dpanel-head" style="background:#fef2f2;border-color:#fecaca">
         <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent tickets &mdash; Class A/B + AC/Power issues</div>
-        <span style="font-size:11px;color:#991b1b">${urgFiltered.length} open</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#991b1b">${urgFiltered.length} open</span>
+          <button onclick="rDash()" class="btn bsm" style="font-size:10px;padding:2px 8px;border-color:#fecaca;color:#991b1b;background:#fef2f2">&#8635; Refresh</button>
+        </div>
       </div>
       <div class="dpanel-body" style="max-height:240px;overflow-y:auto">
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -597,7 +603,10 @@ async function rDash(){
     <div class="dpanel">
       <div class="dpanel-head">
         <div class="dpanel-title"><span class="live-dot"></span>Live feed &mdash; open tickets</div>
-        <span style="font-size:10px;color:var(--text2)">newest first &nbsp;·&nbsp; auto-refreshes every 60s</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="refresh-stamp" style="font-size:10px;color:var(--text3)"></span>
+          <span style="font-size:10px;color:var(--text2)">auto-refreshes every 2 min</span>
+        </div>
       </div>
       <div class="dpanel-body">
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -616,7 +625,7 @@ async function rDash(){
               <th style="padding:6px 10px;border-bottom:0.5px solid var(--border)"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="live-feed-body">
             ${rec.length?rec.map(t=>ticketRow(t,false)).join('')
               :'<tr><td colspan="7" style="padding:14px 12px;font-size:12px;color:var(--text2)">No open tickets</td></tr>'}
           </tbody>
@@ -1848,18 +1857,60 @@ function toggleTheme(){
 })();
 
 
+
+async function refreshLiveFeed(){
+  const df=S.dashFilter||{region:'',sclass:''};
+  const fq=(q)=>{
+    if(df.region)q=q.eq('region',df.region);
+    if(df.sclass)q=q.eq('site_class',df.sclass);
+    return q;
+  };
+  const{data:rec}=await fq(
+    sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended')
+    .eq('status','Open').order('created_at',{ascending:false}).limit(15)
+  );
+  _lastRefresh=new Date();
+  updateRefreshStamp();
+
+  // Update only the live feed panel body
+  const liveBody=document.getElementById('live-feed-body');
+  if(!liveBody)return;
+
+  const siteCounts=S._siteCounts||{};
+  const siteLastSeen=S._siteLastSeen||{};
+  const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
+
+  if(!rec||!rec.length){
+    liveBody.innerHTML='<tr><td colspan="8" style="padding:14px 12px;font-size:12px;color:var(--text2)">No open tickets</td></tr>';
+    return;
+  }
+  liveBody.innerHTML=rec.map(t=>{
+    const repCnt=siteCounts[t.site_id_canonical]||1;
+    return`<tr onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
+      style="cursor:pointer"
+      onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background=''">
+      <td style="padding:8px 12px;font-size:10px;font-family:monospace;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.tt_number||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:500;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_id_canonical||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
+      <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
 // AUTO-REFRESH
 let _refreshTimer = null;
 let _lastRefresh = null;
-const REFRESH_MS = 60000; // 60 seconds
+const REFRESH_MS = 120000; // 120 seconds
 
 function startAutoRefresh(){
   stopAutoRefresh();
   _refreshTimer = setInterval(()=>{
     if(S.tab === 'dashboard' && !document.hidden){
-      rDash();
-      _lastRefresh = new Date();
-      updateRefreshStamp();
+      refreshLiveFeed();
     }
   }, REFRESH_MS);
 }
@@ -1878,9 +1929,7 @@ function updateRefreshStamp(){
 // Refresh immediately when tab becomes visible again
 document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden && S.tab === 'dashboard' && S.user !== null){
-    rDash();
-    _lastRefresh = new Date();
-    updateRefreshStamp();
+    refreshLiveFeed();
   }
 });
 
