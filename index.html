@@ -906,18 +906,11 @@ async function rTix(){
       oninput="S.tf.q=this.value;S.tpage=1;rTix()">
     <select onchange="S.tf.status=this.value;S.tpage=1;rTix()">
       <option value="">All statuses</option>
-      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>${s}</option>`).join('')}
+      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>` +s+ `</option>`).join('')}
     </select>
     <select onchange="S.tf.region=this.value;S.tpage=1;rTix()">
       <option value="">All regions</option>
-      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>${r}</option>`).join('')}
-    </select>
-    <select onchange="S.tsort.col=this.value;S.tpage=1;rTix()" style="min-width:130px">
-      ${cols.map(c=>`<option value="${c.id}"${srt.col===c.id?' selected':''}>${c.l}</option>`).join('')}
-    </select>
-    <select onchange="S.tsort.dir=this.value;S.tpage=1;rTix()" style="min-width:90px">
-      <option value="desc"${srt.dir==='desc'?' selected':''}>Newest first</option>
-      <option value="asc"${srt.dir==='asc'?' selected':''}>Oldest first</option>
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>` +r+ `</option>`).join('')}
     </select>
     <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
       <option value="">All classes</option>
@@ -925,21 +918,7 @@ async function rTix(){
       <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
       <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
     </select>
-    <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:120px">
-      <option value="">Any repeat count</option>
-      <option value="2"${f.repeat_min==='2'?' selected':''}>Repeated (2+)</option>
-      <option value="5"${f.repeat_min==='5'?' selected':''}>5+ tickets</option>
-      <option value="10"${f.repeat_min==='10'?' selected':''}>10+ tickets</option>
-      <option value="20"${f.repeat_min==='20'?' selected':''}>20+ tickets</option>
-    </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
-    <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
-      <option value="">All classes</option>
-      <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
-      <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
-      <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
-    </select>
-    <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:120px">
+    <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:130px">
       <option value="">Any repeat count</option>
       <option value="2"${f.repeat_min==='2'?' selected':''}>Repeated (2+)</option>
       <option value="5"${f.repeat_min==='5'?' selected':''}>5+ tickets</option>
@@ -948,7 +927,7 @@ async function rTix(){
     </select>
     <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
     <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
-    ${ce?'<button class="btn bpri" onclick="renderTab(\'new_ticket\')">+ New Ticket</button>':''}
+    ${ce?'<button class="btn bpri" onclick="openNewTicketPanel()">+ New Ticket</button>':''}
   </div>
   <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:900px"><thead><tr>
     ${cols.map(c=>{
