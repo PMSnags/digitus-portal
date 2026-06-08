@@ -407,8 +407,8 @@ async function rDash(){
     fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C').eq('status','Closed'),
     // Date range
     fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:true}).limit(1)),
-    // Repeat counts per site — fetch paginated below, placeholder here
-    sb.from('tickets').select('site_id_canonical',{count:'exact',head:true}).not('site_id_canonical','is',null),
+    // Repeat counts via server-side RPC — single fast query
+    sb.rpc('get_site_repeat_counts'),
     // Live feed — open tickets only
     fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
     // Urgent
@@ -427,25 +427,15 @@ async function rDash(){
   const maxDateRes=await fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:false}).limit(1));
   const maxDate=(maxDateRes.data&&maxDateRes.data[0])?maxDateRes.data[0].ticket_date:'—';
 
-  // Repeat counts + last seen — paginated fetch
+  // Repeat counts + last seen — from RPC (single server-side query)
   const siteCounts={};
   const siteLastSeen={};
-  const totalSites=siteRepRes.count||0;
-  if(totalSites>0){
-    let from=0;const SBATCH=1000;let fetching=true;
-    while(fetching){
-      const{data:sd}=await sb.from('tickets').select('site_id_canonical,ticket_date').not('site_id_canonical','is',null).range(from,from+SBATCH-1);
-      (sd||[]).forEach(r=>{
-        if(r.site_id_canonical){
-          siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;
-          if(!siteLastSeen[r.site_id_canonical]||r.ticket_date>siteLastSeen[r.site_id_canonical]){
-            siteLastSeen[r.site_id_canonical]=r.ticket_date;
-          }
-        }
-      });
-      if(!sd||sd.length<SBATCH)fetching=false;else from+=SBATCH;
+  (siteRepRes.data||[]).forEach(r=>{
+    if(r.site_id_canonical){
+      siteCounts[r.site_id_canonical]=parseInt(r.ticket_count)||1;
+      siteLastSeen[r.site_id_canonical]=r.last_seen||null;
     }
-  }
+  });
 
   // Urgent filtered
   const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
