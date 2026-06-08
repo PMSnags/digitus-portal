@@ -322,14 +322,14 @@ async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is
 // NAV
 function tabs_fn(){
   const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'}];
-  if(S.role==='admin')t.push({id:'kpi',l:'KPI Report'});
   if(S.role!=='guest'){
-    t.push({id:'new_ticket',l:'New Ticket'});
     t.push({id:'cleaner',l:'Site ID Cleaner'});
     t.push({id:'bulk',l:'Bulk Update'});
     t.push({id:'profile',l:'My Account'});
   }
   if(S.role==='admin'){
+    t.push({id:'new_ticket',l:'New Ticket'});
+    t.push({id:'kpi',l:'KPI Report'});
     t.push({id:'mstaff',l:'Manage Staff & Users'});
     t.push({id:'mlkp',l:'Manage Dropdowns'});
     t.push({id:'backup',l:'Backup Data'});
@@ -407,8 +407,8 @@ async function rDash(){
     fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C').eq('status','Closed'),
     // Date range
     fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:true}).limit(1)),
-    // Repeat counts per site
-    fq(sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000)),
+    // Repeat counts per site — GLOBAL (no filter, counts across all regions/classes)
+    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
     // Live feed — open tickets only
     fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
     // Urgent
@@ -492,7 +492,7 @@ async function rDash(){
         <option value="Class C"${df.sclass==='Class C'?' selected':''}>Class C</option>
       </select>
       ${df.region||df.sclass?`<button class="btn bsm" onclick="S.dashFilter={region:'',sclass:''};rDash()" style="font-size:11px">Clear filters</button>`:''}
-      <button class="btn bpri" onclick="renderTab('new_ticket')" style="font-size:11px;padding:5px 12px"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> New Ticket</button>
+      ${S.role!=='guest'?`<button class="btn bpri" onclick="openNewTicketPanel()" style="font-size:11px;padding:5px 12px"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> New Ticket</button>`:''}
       <span id="refresh-stamp" style="font-size:10px;color:var(--text3)"></span>
       <div style="font-size:11px;color:var(--text2)"><span class="live-dot"></span>${timeStr}</div>
     </div>
@@ -1900,6 +1900,112 @@ async function backupAll(){
     await new Promise(r=>setTimeout(r,1500));
   }
   toast('All tables downloaded');
+}
+
+
+// NEW TICKET SLIDE-IN PANEL
+function openNewTicketPanel(){
+  const ex=document.getElementById('nt-panel');
+  if(ex){ex.remove();return;}
+  const bo=S.staff.filter(s=>s.role_type==='bo_team').map(s=>`<option>${s.name}</option>`).join('');
+  const tc=S.staff.filter(s=>s.role_type==='tech').map(s=>`<option>${s.name}</option>`).join('');
+  const iss=(S.lkp.issue_type||[]).map(i=>`<option>${i}</option>`).join('');
+  const panel=document.createElement('div');
+  panel.id='nt-panel';
+  panel.style.cssText='position:fixed;top:0;right:0;width:460px;height:100vh;background:var(--surf);border-left:1px solid var(--border);z-index:500;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.1);display:flex;flex-direction:column';
+  panel.innerHTML=`
+    <div style="background:var(--dark);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:1">
+      <div style="font-size:13px;font-weight:500;color:#fff">New Ticket</div>
+      <button onclick="document.getElementById('nt-panel').remove()" style="background:transparent;border:1px solid #333;color:#aaa;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer">&#10005; Close</button>
+    </div>
+    <div style="padding:18px;flex:1">
+      <div class="fg">
+        <div class="ff full"><label>TT / IM Number *</label><input type="text" id="nt-1" placeholder="e.g. IM8400001"></div>
+        <div class="ff"><label>Region *</label>
+          <select id="nt-2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select>
+        </div>
+        <div class="ff"><label>Date *</label><input type="date" id="nt-3"></div>
+        <div class="ff full"><label>Site ID (raw) *</label>
+          <input type="text" id="nt-5" placeholder="e.g. DXBL3164-HUB" oninput="ntResolveSite(this.value)">
+          <div id="nt-srok" class="srok"></div><div id="nt-sramb" class="sramb"></div>
+        </div>
+        <div class="ff"><label>Corrected Site ID</label><input type="text" id="nt-6" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff"><label>Site Class</label><input type="text" id="nt-7" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff full"><label>Issue Type *</label><select id="nt-9"><option value="">Select issue</option>${iss}</select></div>
+        <div class="ff"><label>BO Team</label><select id="nt-10"><option value="">Select</option>${bo}</select></div>
+        <div class="ff"><label>Tech Name</label><select id="nt-11"><option value="">Select</option>${tc}</select></div>
+        <div class="ff"><label>Date Attended</label><input type="date" id="nt-12"></div>
+        <div class="ff"><label>Status</label>
+          <select id="nt-15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select>
+        </div>
+        <div class="ff full"><label>Remarks</label><textarea id="nt-17" placeholder="General remarks…"></textarea></div>
+        <div class="ff full"><label>Resolution</label><textarea id="nt-18" placeholder="Resolution details…"></textarea></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <button class="btn bpri" style="flex:1;justify-content:center" onclick="ntSubmit()">Submit Ticket</button>
+        <button class="btn" onclick="document.getElementById('nt-panel').remove()">Cancel</button>
+      </div>
+      <div id="nt-msg" style="font-size:12px;margin-top:8px;display:none"></div>
+    </div>`;
+  document.body.appendChild(panel);
+  document.getElementById('nt-3').valueAsDate=new Date();
+}
+
+async function ntResolveSite(raw){
+  const can=xSite(raw);
+  document.getElementById('nt-6').value=can;
+  const ok=document.getElementById('nt-srok');
+  const amb=document.getElementById('nt-sramb');
+  ok.style.display='none';amb.style.display='none';
+  if(!can)return;
+  const cols=['site_id','new_site_code','old_site_code','bts_2g','bts_3g','lte_code','code_5g'];
+  let site=null;
+  for(const c of cols){const{data}=await sb.from('sites').select('*').eq(c,can).limit(1);if(data&&data.length){site=data[0];break;}}
+  if(site){
+    document.getElementById('nt-6').value=site.site_id;
+    document.getElementById('nt-7').value=site.site_class||'';
+    ok.innerHTML='&#10003; Matched: <strong>'+site.site_id+'</strong> &mdash; '+( site.site_class||'')+' &mdash; '+(site.region||'');
+    ok.style.display='block';
+  }else{
+    amb.innerHTML='&#9888; <strong>'+can+'</strong> not found in MDB';
+    amb.style.display='block';
+    document.getElementById('nt-7').value='';
+  }
+}
+
+async function ntSubmit(){
+  const tt=document.getElementById('nt-1').value.trim();
+  const rg=document.getElementById('nt-2').value;
+  const iss=document.getElementById('nt-9').value;
+  const msg=document.getElementById('nt-msg');
+  if(!tt||!rg||!iss){
+    msg.textContent='TT Number, Region and Issue Type are required.';
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:8px';
+    return;
+  }
+  const{error}=await sb.from('tickets').insert([{
+    tt_number:tt,region:rg,
+    ticket_date:document.getElementById('nt-3').value||null,
+    site_id_raw:document.getElementById('nt-5').value.trim()||null,
+    site_id_canonical:document.getElementById('nt-6').value.trim()||null,
+    site_class:document.getElementById('nt-7').value||null,
+    tt_issue:iss,
+    bo_team:document.getElementById('nt-10').value||null,
+    tech_name:document.getElementById('nt-11').value||null,
+    tt_date_attended:document.getElementById('nt-12').value||null,
+    status:document.getElementById('nt-15').value,
+    remarks:document.getElementById('nt-17').value||null,
+    resolution:document.getElementById('nt-18').value||null,
+    opened_by:S.name,updated_by:S.name,
+  }]);
+  if(error){
+    msg.textContent='Error: '+error.message;
+    msg.style.cssText='display:block;color:var(--pri);font-size:12px;margin-top:8px';
+    return;
+  }
+  toast('Ticket submitted successfully');
+  document.getElementById('nt-panel').remove();
+  rDash();
 }
 
 // HELPERS
