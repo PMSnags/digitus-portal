@@ -2107,6 +2107,61 @@ async function ntSubmit(){
   rDash();
 }
 
+
+// TICKET DETAIL SIDE PANEL
+function expandTicket(t){
+  const ex=document.getElementById('ticket-expand');
+  if(ex)ex.remove();
+  if(!t||!t.tt_number)return;
+  const urg=isUrgent(t.tt_issue,t.site_class)&&(t.status==='Open'||t.status==='Pending');
+  const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
+  const panel=document.createElement('div');
+  panel.id='ticket-expand';
+  panel.style.cssText='position:fixed;top:0;right:0;width:480px;height:100vh;background:var(--surf);border-left:0.5px solid var(--border);z-index:600;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.08);display:flex;flex-direction:column';
+  panel.innerHTML=`
+    <div style="background:var(--dark);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;flex-shrink:0">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:#fff">${t.tt_number||'—'}</div>
+        <div style="font-size:10px;color:#666;margin-top:1px">${t.ticket_date||'—'} &nbsp;&middot;&nbsp; ${t.region||'—'}</div>
+      </div>
+      <button onclick="document.getElementById('ticket-expand').remove()" style="background:transparent;border:1px solid #333;color:#aaa;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer">&#10005; Close</button>
+    </div>
+    ${urg?`<div style="background:#fef2f2;border-bottom:1px solid #fecaca;padding:8px 18px;font-size:11px;font-weight:500;color:#991b1b;flex-shrink:0">&#9888; Urgent ticket &mdash; requires immediate attention</div>`:''}
+    <div style="padding:18px;flex:1">
+      <div style="display:grid;grid-template-columns:1fr 1fr;border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px">
+        ${[
+          ['Site (raw)',t.site_id_raw||'—'],
+          ['Corrected site ID',t.site_id_canonical||'—'],
+          ['Site class',t.site_class||'—'],
+          ['Site type',t.site_type||'—'],
+          ['Issue type',t.tt_issue||'—'],
+          ['Status',t.status||'—'],
+          ['BO team',t.bo_team||'—'],
+          ['Tech name',t.tech_name||'—'],
+          ['Date attended',t.tt_date_attended||'—'],
+          ['Outage start',t.outage_start||'—'],
+          ['Battery status',t.battery_status||'—'],
+          ['Last updated by',t.updated_by||'—'],
+        ].map(([l,v],i)=>`
+        <div style="padding:8px 12px;border-bottom:0.5px solid var(--border);${i%2===0?'border-right:0.5px solid var(--border)':''}">
+          <div style="font-size:9px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${l}</div>
+          <div style="font-size:12px;color:var(--text);font-weight:${l==='Corrected site ID'?'500':'400'}">${v}</div>
+        </div>`).join('')}
+      </div>
+      ${t.remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.remarks}</div></div>`:''}
+      ${t.resolution?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Resolution</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.resolution}</div></div>`:''}
+      ${t.closure_remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Closure remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.closure_remarks}</div></div>`:''}
+      ${canEdit&&t.id?`
+      <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);display:flex;gap:8px">
+        <button class="btn bpri" style="flex:1;justify-content:center" onclick="document.getElementById('ticket-expand').remove();editTicket('${t.id}')">
+          <i class="ti ti-edit" style="font-size:13px" aria-hidden="true"></i> &nbsp;Update ticket
+        </button>
+        <button class="btn" onclick="document.getElementById('ticket-expand').remove()">Close</button>
+      </div>`:''}
+    </div>`;
+  document.body.appendChild(panel);
+}
+
 // HELPERS
 function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
 function cbadge(c){if(!c)return'—';const m={'Class A':'bca','Class B':'bcb','Class C':'bcc'};return`<span class="badge ${m[c]||'bcc'}">${c}</span>`;}
