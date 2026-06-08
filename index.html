@@ -245,7 +245,7 @@ const SURL='https://dryfnspbsudwluunxloi.supabase.co';
 const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeWZuc3Bic3Vkd2x1dW54bG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzk0NzIsImV4cCI6MjA5NTkxNTQ3Mn0.xXRfuYgCY_5ueOUDtgSINCwpn70xrZL9wGQ8pSHbaIs';
 const sb=supabase.createClient(SURL,SKEY);
 const PP=50;
-let S={user:null,role:'guest',name:'Guest',tab:'dashboard',
+let S={user:null,role:'guest',name:'Guest',tab:'dashboard',dashFilter:{region:'',sclass:''},
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
   tf:{q:'',status:'',region:'',issue:'',sclass:''},
@@ -331,13 +331,14 @@ function tabs_fn(){
   if(S.role==='admin'){
     t.push({id:'mstaff',l:'Manage Staff & Users'});
     t.push({id:'mlkp',l:'Manage Dropdowns'});
+    t.push({id:'backup',l:'Backup Data'});
   }
   return t;
 }
 function renderNav(){
-  const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',kpi:'ti-chart-bar',
+  const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',
     new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',
-    profile:'ti-user',mstaff:'ti-users',mlkp:'ti-adjustments'};
+    profile:'ti-user',mstaff:'ti-users',mlkp:'ti-adjustments',backup:'ti-database-export'};
   const tabs=tabs_fn();
   const mainTabs=['dashboard','tickets','kpi'];
   const opsTabs=['new_ticket','cleaner','bulk'];
@@ -362,41 +363,55 @@ function renderTab(t){
   if(t==='dashboard'){startAutoRefresh();}else{stopAutoRefresh();}
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
-  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();}
+  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();else if(t==='backup')rBackup();}
 
 // DASHBOARD
 async function rDash(){
   const mc=document.getElementById('mc');
   mc.innerHTML='<div class="loading">Loading dashboard...</div>';
 
+  // Dashboard filters
+  const df=S.dashFilter||{region:'',sclass:''};
+
+  // Build base query with filters
+  const fq=(q)=>{
+    if(df.region)q=q.eq('region',df.region);
+    if(df.sclass)q=q.eq('site_class',df.sclass);
+    return q;
+  };
+
   const[tot,opn,pnd,att,cls,
     regDXB,regNE,regAUH,regAAN,regWR,
     caRes,cbRes,ccRes,
     caOpenRes,caClosedRes,cbOpenRes,cbClosedRes,ccOpenRes,ccClosedRes,
-    recRes,urgRes,agingRes,repRes]=await Promise.all([
-    sb.from('tickets').select('*',{count:'exact',head:true}),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Open'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Pending'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Attended'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('status','Closed'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','DXB'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','NE'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AUH'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','AAN'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('region','WR'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').in('status',['Open','Pending']),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class A').eq('status','Closed'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').in('status',['Open','Pending']),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class B').eq('status','Closed'),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').in('status',['Open','Pending']),
-    sb.from('tickets').select('*',{count:'exact',head:true}).eq('site_class','Class C').eq('status','Closed'),
-    sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').order('created_at',{ascending:false}).limit(10),
-    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks,resolution,closure_remarks,battery_status,updated_by,site_type,site_id_raw,tt_date_attended').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500),
-    sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tt_date_attended,remarks,resolution,closure_remarks,battery_status,updated_by,site_type').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(50),
-    sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000),
+    dateRes,siteRepRes,recRes,urgRes]=await Promise.all([
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('status','Open'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('status','Pending'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('status','Attended'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('status','Closed'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('region','DXB'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('region','NE'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('region','AUH'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('region','AAN'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('region','WR'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class A'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class B'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class A').in('status',['Open','Pending']),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class A').eq('status','Closed'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class B').in('status',['Open','Pending']),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class B').eq('status','Closed'),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C').in('status',['Open','Pending']),
+    fq(sb.from('tickets').select('*',{count:'exact',head:true})).eq('site_class','Class C').eq('status','Closed'),
+    // Date range
+    fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:true}).limit(1)),
+    // Repeat counts per site
+    fq(sb.from('tickets').select('site_id_canonical').not('site_id_canonical','is',null).limit(100000)),
+    // Live feed — open tickets only
+    fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
+    // Urgent
+    fq(sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks,resolution,closure_remarks,battery_status,updated_by,site_type,site_id_raw,tt_date_attended').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500)),
   ]);
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
@@ -405,245 +420,186 @@ async function rDash(){
   const cbOpen={count:cbOpenRes.count||0},cbClosed={count:cbClosedRes.count||0};
   const ccOpen={count:ccOpenRes.count||0},ccClosed={count:ccClosedRes.count||0};
   const rc={DXB:regDXB.count||0,NE:regNE.count||0,AUH:regAUH.count||0,AAN:regAAN.count||0,WR:regWR.count||0};
-  const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,8);
-  const agingTix=(agingRes.data||[]).map(t=>{const d=t.ticket_date?Math.floor((new Date()-new Date(t.ticket_date))/86400000):0;return{...t,days:d};}).sort((a,b)=>b.days-a.days).slice(0,10);
-  const siteCounts={};(repRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
-  const topRep=Object.entries(siteCounts).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Date range
+  const minDate=(dateRes.data&&dateRes.data[0])?dateRes.data[0].ticket_date:'—';
+  const maxDateRes=await fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:false}).limit(1));
+  const maxDate=(maxDateRes.data&&maxDateRes.data[0])?maxDateRes.data[0].ticket_date:'—';
+
+  // Repeat counts
+  const siteCounts={};
+  (siteRepRes.data||[]).forEach(r=>{if(r.site_id_canonical)siteCounts[r.site_id_canonical]=(siteCounts[r.site_id_canonical]||0)+1;});
+
+  // Urgent filtered
+  const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
   const rec=recRes.data||[];
-  const now=new Date();
-  _lastRefresh=now;
-  const timeStr=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-  const dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  const regBar=(r)=>{
-    const c=rc[r]||0;const p=T?Math.round(c/T*100):0;
-    return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:500;color:var(--text);width:32px">${r}</div>
-      <div style="flex:1;height:7px;background:var(--surf2);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${p}%;background:var(--pri);border-radius:3px"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text2);width:44px;text-align:right">${c.toLocaleString()}</div>
-    </div>`;
-  };
+  _lastRefresh=new Date();
+  const timeStr=_lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const dateStr=_lastRefresh.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  const dayBadge=(d)=>{
-    if(d>30)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FCEBEB;color:#A32D2D">${d}d</span>`;
-    if(d>14)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FAEEDA;color:#854F0B">${d}d</span>`;
-    return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#E6F1FB;color:#185FA5">${d}d</span>`;
-  };
+  const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
 
-  const ticketCard=(t,showUrgTag)=>{
-    const urg=showUrgTag&&isUrgent(t.tt_issue,t.site_class);
-    const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
-    return`<div style="padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:7px;${urg?'border-left:3px solid var(--pri);padding-left:9px;background:#fff5f5':''}" onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}' " onmouseout="this.style.background='${urg?'#fff5f5':'transparent'}'" onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})">
-      <span style="font-size:10px;font-family:monospace;color:var(--text2);width:78px;flex-shrink:0">${t.tt_number||'—'}</span>
+  const ticketRow=(t,showUrg)=>{
+    const repCnt=siteCounts[t.site_id_canonical]||1;
+    const urg=showUrg&&isUrgent(t.tt_issue,t.site_class)&&(t.status==='Open'||t.status==='Pending');
+    return`<div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
+      style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer;${urg?'background:#fff5f5;border-left:3px solid var(--pri);padding-left:9px':''}"
+      onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}'" onmouseout="this.style.background='${urg?'#fff5f5':'transparent'}'">
+      <span style="font-size:10px;font-family:monospace;color:var(--text2);width:80px;flex-shrink:0">${t.tt_number||'—'}</span>
       <span style="font-size:11px;font-weight:500;width:62px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
-      <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
+      <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.tt_issue||''}">${t.tt_issue||'—'}</span>
       ${t.site_class?cbadge(t.site_class):''}
       ${urg?'<span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0">Urgent</span>':''}
       <span style="font-size:10px;color:var(--text2);flex-shrink:0">${t.ticket_date||'—'}</span>
-      ${sbadge(t.status)}
+      ${repCnt>1?`<span style="font-size:9px;font-weight:600;color:var(--amber);flex-shrink:0;min-width:28px;text-align:right" title="This site has ${repCnt} tickets">${repCnt}×</span>`:'<span style="min-width:28px"></span>'}
       ${canEdit&&t.id?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0">Edit</button>`:''}
     </div>`;
   };
 
-
   mc.innerHTML=`
   <style>
-    .dash-shell{display:flex;flex-direction:column;gap:10px;min-height:calc(100vh - 148px)}
-    .dash-stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .dash-shell{display:flex;flex-direction:column;gap:10px}
     .dash-row{display:grid;gap:10px}
     .dpanel{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
-    .dpanel-head{padding:9px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surf2)}
-    .dpanel-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px}
+    .dpanel-head{padding:9px 14px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surf2)}
+    .dpanel-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
     .dpanel-body{overflow-y:auto;flex:1}
     .live-dot{width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;margin-right:4px}
-    .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:11px 14px;cursor:pointer;transition:background .12s}
+    .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;cursor:pointer;transition:background .12s}
     .dstat:hover{background:var(--surf2)}
     .dstat-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
     .dstat-val{font-size:22px;font-weight:500;line-height:1;letter-spacing:-.5px}
     .dstat-sub{font-size:10px;color:var(--text3);margin-top:2px}
+    .col-hdr{font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:5px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surf2)}
   </style>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:13px;font-weight:500;color:var(--text)">Dashboard</div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <span id="refresh-stamp" style="font-size:11px;color:var(--text3)"></span>
-      <div style="font-size:11px;color:var(--text2)">${dateStr} &nbsp;&middot;&nbsp; <span class="live-dot"></span>${timeStr}</div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="font-size:13px;font-weight:500;color:var(--text)">Dashboard</div>
+      <span style="font-size:11px;color:var(--text3)">Open date range: <strong style="color:var(--text2)">${minDate} &rarr; ${maxDate}</strong></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <!-- Filters -->
+      <select onchange="S.dashFilter.region=this.value;rDash()" style="font-size:11px;padding:4px 8px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--surf);color:var(--text);width:auto">
+        <option value="">All regions</option>
+        ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option value="${r}"${df.region===r?' selected':''}>${r}</option>`).join('')}
+      </select>
+      <select onchange="S.dashFilter.sclass=this.value;rDash()" style="font-size:11px;padding:4px 8px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--surf);color:var(--text);width:auto">
+        <option value="">All classes</option>
+        <option value="Class A"${df.sclass==='Class A'?' selected':''}>Class A</option>
+        <option value="Class B"${df.sclass==='Class B'?' selected':''}>Class B</option>
+        <option value="Class C"${df.sclass==='Class C'?' selected':''}>Class C</option>
+      </select>
+      ${df.region||df.sclass?`<button class="btn bsm" onclick="S.dashFilter={region:'',sclass:''};rDash()" style="font-size:11px">Clear filters</button>`:''}
+      <button class="btn bpri" onclick="renderTab('new_ticket')" style="font-size:11px;padding:5px 12px"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> New Ticket</button>
+      <span id="refresh-stamp" style="font-size:10px;color:var(--text3)"></span>
+      <div style="font-size:11px;color:var(--text2)"><span class="live-dot"></span>${timeStr}</div>
     </div>
   </div>
-  <div class="dash-shell">
 
-    <!-- Row 1: Stat cards -->
-    <div class="dash-stat-row">
-      ${[['Total',T,'All regions','#185FA5',''],
+  <div class="dash-shell">
+    <!-- Stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+      ${[['Total',T,`${minDate} → ${maxDate}`,'#185FA5',''],
          ['Open',O,Math.round(O/(T||1)*100)+'% of total','var(--pri)','Open'],
          ['Pending',P,Math.round(P/(T||1)*100)+'% of total','var(--amber)','Pending'],
          ['Attended',A,Math.round(A/(T||1)*100)+'% of total','var(--blue)','Attended'],
          ['Closed',C,Math.round(C/(T||1)*100)+'% resolved','var(--green)','Closed'],
-      ].map(([l,v,s,c,filt])=>`<div class="dstat" onclick="${filt?`S.tf.status='${filt}';S.tf.q='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:'renderTab(\'tickets\')'}">
+      ].map(([l,v,s,c,filt])=>`<div class="dstat" onclick="${filt?`S.tf.status='${filt}';S.tf.q='';S.tf.region='${df.region}';S.tf.sclass='${df.sclass}';S.tpage=1;renderTab('tickets')`:'renderTab(\'tickets\')'}">
         <div class="dstat-label">${l}</div>
         <div class="dstat-val" style="color:${c}">${v.toLocaleString()}</div>
         <div class="dstat-sub">${s}</div>
       </div>`).join('')}
     </div>
 
-    <!-- Row 2: Region status + Site class side by side -->
+    <!-- Row 2: Region + Site class -->
     <div class="dash-row" style="grid-template-columns:1fr 1fr">
-
-      <!-- Region status -->
       <div class="dpanel">
         <div class="dpanel-head"><div class="dpanel-title">Region status</div></div>
         <div class="dpanel-body" style="padding:12px">
-          ${['DXB','NE','AUH','AAN','WR'].map(r=>{
-            const c=rc[r]||0,p=T?Math.round(c/T*100):0;
-            return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
-              <div style="font-size:11px;font-weight:500;width:32px">${r}</div>
-              <div style="flex:1;height:7px;background:var(--surf2);border-radius:4px;overflow:hidden">
-                <div style="height:100%;width:${p}%;background:var(--pri);border-radius:4px"></div>
-              </div>
-              <div style="font-size:11px;color:var(--text2);width:44px;text-align:right">${c.toLocaleString()}</div>
-            </div>`;
-          }).join('')}
+          ${['DXB','NE','AUH','AAN','WR'].map(r=>{const c=rc[r]||0,p=T?Math.round(c/T*100):0;return`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:500;width:32px">${r}</div>
+            <div style="flex:1;height:7px;background:var(--surf2);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${p}%;background:var(--pri);border-radius:4px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text2);width:44px;text-align:right">${c.toLocaleString()}</div>
+          </div>`;}).join('')}
         </div>
       </div>
-
-      <!-- Site class status -->
       <div class="dpanel">
         <div class="dpanel-head"><div class="dpanel-title">Site class breakdown</div></div>
         <div class="dpanel-body" style="padding:12px">
-          ${[['Class A',cA,caOpen.count,caClosed.count,'#EEEDFE','#3C3489'],['Class B',cB,cbOpen.count,cbClosed.count,'#E6F1FB','#0C447C'],['Class C',cC,ccOpen.count,ccClosed.count,'#F1EFE8','#444441']].map(([cls,cnt,op,cl,bg,col])=>`
-          <div onclick="S.tf.sclass='${cls}';S.tf.q='';S.tf.status='';S.tf.region='';S.tpage=1;renderTab('tickets')"
-            style="margin-bottom:12px;cursor:pointer;padding:6px 8px;border-radius:var(--r)"
+          ${[['Class A',cA,caOpen.count,caClosed.count,'#EEEDFE','#3C3489'],
+             ['Class B',cB,cbOpen.count,cbClosed.count,'#E6F1FB','#0C447C'],
+             ['Class C',cC,ccOpen.count,ccClosed.count,'#F1EFE8','#444441']
+          ].map(([cls,cnt,op,cl,bg,col])=>`
+          <div onclick="S.tf.sclass='${cls}';S.tf.q='';S.tf.status='';S.tf.region='${df.region}';S.tpage=1;renderTab('tickets')"
+            style="margin-bottom:10px;cursor:pointer;padding:5px 7px;border-radius:var(--r)"
             onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1px">
-              <span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:4px;background:${bg};color:${col};width:70px;text-align:center;flex-shrink:0">${cls}</span>
-              <span style="font-size:9px;color:var(--green);width:36px;flex-shrink:0">Closed</span>
-              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
-                <div style="height:100%;width:${cnt?Math.round(cl/cnt*100):0}%;background:var(--green);border-radius:3px"></div>
-              </div>
-              <span style="font-size:10px;font-weight:500;color:var(--green);width:36px;text-align:right;flex-shrink:0">${cl.toLocaleString()}</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px;background:${bg};color:${col};width:68px;text-align:center;flex-shrink:0">${cls}</span>
+              <span style="font-size:9px;color:var(--green);width:34px;flex-shrink:0">Closed</span>
+              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${cnt?Math.round(cl/cnt*100):0}%;background:var(--green);border-radius:3px"></div></div>
+              <span style="font-size:10px;font-weight:500;color:var(--green);width:40px;text-align:right;flex-shrink:0">${cl.toLocaleString()}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="width:70px;flex-shrink:0"></span>
-              <span style="font-size:9px;color:var(--pri);width:36px;flex-shrink:0">Open</span>
-              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden">
-                <div style="height:100%;width:${cnt?Math.round(op/cnt*100):0}%;background:var(--pri);border-radius:3px"></div>
-              </div>
-              <span style="font-size:10px;font-weight:500;color:var(--pri);width:36px;text-align:right;flex-shrink:0">${op.toLocaleString()}</span>
+              <span style="width:68px;flex-shrink:0"></span>
+              <span style="font-size:9px;color:var(--pri);width:34px;flex-shrink:0">Open</span>
+              <div style="flex:1;height:5px;background:var(--surf2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${cnt?Math.round(op/cnt*100):0}%;background:var(--pri);border-radius:3px"></div></div>
+              <span style="font-size:10px;font-weight:500;color:var(--pri);width:40px;text-align:right;flex-shrink:0">${op.toLocaleString()}</span>
             </div>
           </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <!-- Row 3: Urgent tickets (full width) -->
+    <!-- Row 3: Urgent tickets -->
     <div class="dpanel">
       <div class="dpanel-head" style="background:#fef2f2;border-color:#fecaca">
-        <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent tickets &mdash; Class A/B (all issues) + AC/Power (all classes)</div>
-        <button class="btn bsm" onclick="renderTab('kpi')" style="font-size:11px">KPI &rarr;</button>
+        <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent tickets &mdash; Class A/B + AC/Power issues</div>
+        <span style="font-size:11px;color:#991b1b">${urgFiltered.length} open</span>
+      </div>
+      <div class="col-hdr">
+        <span style="width:80px;flex-shrink:0">TT Number</span>
+        <span style="width:62px;flex-shrink:0">Site</span>
+        <span style="flex:1">Issue</span>
+        <span style="width:60px;flex-shrink:0">Class</span>
+        <span style="width:80px;flex-shrink:0">Date opened</span>
+        <span style="width:28px;flex-shrink:0;text-align:right">Rpt</span>
+        ${canEdit?'<span style="width:40px;flex-shrink:0"></span>':''}
+      </div>
+      <div class="dpanel-body" style="max-height:220px">
+        ${urgFiltered.length?urgFiltered.map(t=>ticketRow(t,true)).join('')
+          :'<div style="padding:12px;font-size:12px;color:var(--text2)">No urgent tickets</div>'}
+      </div>
+    </div>
+
+    <!-- Row 4: Live feed (open only) -->
+    <div class="dpanel">
+      <div class="dpanel-head">
+        <div class="dpanel-title"><span class="live-dot"></span>Live feed &mdash; open tickets</div>
+        <span style="font-size:10px;color:var(--text2)">newest first &nbsp;·&nbsp; auto-refreshes every 60s</span>
+      </div>
+      <div class="col-hdr">
+        <span style="width:80px;flex-shrink:0">TT Number</span>
+        <span style="width:62px;flex-shrink:0">Site</span>
+        <span style="flex:1">Issue</span>
+        <span style="width:60px;flex-shrink:0">Class</span>
+        <span style="width:80px;flex-shrink:0">Date opened</span>
+        <span style="width:28px;flex-shrink:0;text-align:right">Rpt</span>
+        ${canEdit?'<span style="width:40px;flex-shrink:0"></span>':''}
       </div>
       <div class="dpanel-body">
-        ${urgFiltered.length>0?`
-        <div style="padding:4px 10px;background:#fff5f5;border-bottom:0.5px solid #fecaca;font-size:9px;font-weight:500;color:#991b1b;text-transform:uppercase;letter-spacing:.06em">${urgFiltered.length} open urgent tickets</div>
-        ${urgFiltered.map(t=>ticketCard(t,true)).join('')}`
-        :'<div style="padding:12px;font-size:12px;color:var(--text2)">No urgent tickets at this time</div>'}
+        ${rec.length?rec.map(t=>ticketRow(t,false)).join('')
+          :'<div style="padding:12px;font-size:12px;color:var(--text2)">No open tickets</div>'}
       </div>
     </div>
-
-    <!-- Row 4: Live feed + Aging side by side -->
-    <div class="dash-row" style="grid-template-columns:1fr 1fr;flex:1;min-height:300px;flex:1">
-
-      <!-- Live ticket feed -->
-      <div class="dpanel">
-        <div class="dpanel-head">
-          <div class="dpanel-title"><span class="live-dot"></span>Live ticket feed</div>
-          <span style="font-size:10px;color:var(--text2)">newest first</span>
-        </div>
-        <div class="dpanel-body">
-          ${rec.map(t=>ticketCard(t,false)).join('')}
-        </div>
-      </div>
-
-      <!-- Aging open tickets -->
-      <div class="dpanel">
-        <div class="dpanel-head">
-          <div class="dpanel-title">Aging open tickets</div>
-          <span style="font-size:10px;color:var(--text2)">oldest first</span>
-        </div>
-        <div class="dpanel-body">
-          ${agingTix.map(t=>`
-          <div onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
-            style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--border);cursor:pointer"
-            onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'">
-            <span style="font-size:10px;font-family:monospace;color:var(--text2);width:72px;flex-shrink:0">${t.tt_number||'—'}</span>
-            <span style="font-size:11px;font-weight:500;width:58px;flex-shrink:0">${t.site_id_canonical||'—'}</span>
-            <span style="font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tt_issue||'—'}</span>
-            ${t.site_class?cbadge(t.site_class):''}
-            ${(()=>{const d=t.days||0;
-              if(d>30)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FCEBEB;color:#A32D2D;flex-shrink:0">${d}d</span>`;
-              if(d>14)return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#FAEEDA;color:#854F0B;flex-shrink:0">${d}d</span>`;
-              return`<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:#E6F1FB;color:#185FA5;flex-shrink:0">${d}d</span>`;
-            })()}
-            ${t.id&&(S.role==='noc'||S.role==='management'||S.role==='admin')?`<button class="btn bsm" onclick="event.stopPropagation();editTicket('${t.id}')" style="padding:2px 7px;font-size:10px;flex-shrink:0;margin-left:4px">Edit</button>`:''}
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
-
   </div>`;
 }
 
-function expandTicket(t){
-  const ex=document.getElementById('ticket-expand');
-  if(ex)ex.remove();
-  const panel=document.createElement('div');
-  panel.id='ticket-expand';
-  panel.style.cssText='position:fixed;top:0;right:0;width:460px;height:100vh;background:var(--surf);border-left:0.5px solid var(--border);z-index:500;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.07)';
-  const urg=isUrgent(t.tt_issue,t.site_class);
-  panel.innerHTML=`
-    <div style="background:var(--dark);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
-      <div>
-        <div style="font-size:12px;font-weight:500;color:#fff">${t.tt_number||'—'}</div>
-        <div style="font-size:10px;color:#666;margin-top:1px">${t.ticket_date||'—'} &nbsp;·&nbsp; ${t.region||'—'}</div>
-      </div>
-      <button onclick="document.getElementById('ticket-expand').remove()" style="background:transparent;border:1px solid #333;color:#aaa;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer">Close</button>
-    </div>
-    ${urg&&(t.status==='Open'||t.status==='Pending')?`<div style="background:#fef2f2;border-bottom:1px solid #fecaca;padding:8px 18px;font-size:11px;font-weight:500;color:#991b1b">&#9888; Urgent ticket — requires immediate attention</div>`:''}
-    <div style="padding:18px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px">
-        ${[
-          ['Site (raw)',t.site_id_raw||'—'],
-          ['Corrected site ID',t.site_id_canonical||'—'],
-          ['Site class',t.site_class||'—'],
-          ['Site type',t.site_type||'—'],
-          ['Issue type',t.tt_issue||'—'],
-          ['Status',t.status||'—'],
-          ['BO team',t.bo_team||'—'],
-          ['Tech name',t.tech_name||'—'],
-          ['Date attended',t.tt_date_attended||'—'],
-          ['Outage start',t.outage_start||'—'],
-          ['Battery status',t.battery_status||'—'],
-          ['Last updated by',t.updated_by||'—'],
-        ].map(([l,v],i)=>`
-        <div style="padding:8px 12px;border-bottom:0.5px solid var(--border);${i%2===0?'border-right:0.5px solid var(--border)':''}">
-          <div style="font-size:9px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${l}</div>
-          <div style="font-size:12px;color:var(--text);font-weight:${l==='Corrected site ID'?'500':'400'}">${v}</div>
-        </div>`).join('')}
-      </div>
-      ${t.remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.remarks}</div></div>`:''}
-      ${t.resolution?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Resolution</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.resolution}</div></div>`:''}
-      ${t.closure_remarks?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Closure remarks</div><div style="font-size:12px;color:var(--text);background:var(--surf2);padding:10px;border-radius:var(--r);line-height:1.6">${t.closure_remarks}</div></div>`:''}
-      ${(S.role==='noc'||S.role==='management'||S.role==='admin')?`
-      <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);display:flex;gap:8px">
-        <button class="btn bpri" style="flex:1;justify-content:center" onclick="document.getElementById('ticket-expand').remove();editTicket(${t.id})">Edit ticket</button>
-        <button class="btn" onclick="document.getElementById('ticket-expand').remove()">Close</button>
-      </div>`:''}
-    </div>`;
-  document.body.appendChild(panel);
-}
 
-
-// KPI REPORT
 async function rKPI(){
   const mc=document.getElementById('mc');
   mc.innerHTML='<div class="loading">Building KPI report…</div>';
@@ -1849,6 +1805,84 @@ document.addEventListener('visibilitychange', ()=>{
     updateRefreshStamp();
   }
 });
+
+
+// BACKUP DATA
+async function rBackup(){
+  const mc=document.getElementById('mc');
+  mc.innerHTML=`
+  <div style="max-width:600px">
+    <div class="card">
+      <div class="ch"><div class="ct">Backup & export data</div></div>
+      <div class="cb">
+        <div class="info-box" style="margin-bottom:16px">
+          Downloads all data as CSV files. Each table is downloaded separately.
+          Store backups in a safe location — Google Drive or your PC.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${[
+            ['tickets','All tickets (37,000+ rows)','Largest file — may take 30s'],
+            ['sites','MDB sites (14,000+ rows)','Site ID, class, type, region'],
+            ['staff','Staff list','BO teams and field engineers'],
+            ['lookup_values','Dropdown values','All issue types, statuses etc'],
+            ['users','Portal users','Display names and roles (no passwords)'],
+          ].map(([tbl,label,note])=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r)">
+            <div>
+              <div style="font-size:13px;font-weight:500">${label}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${note}</div>
+            </div>
+            <button class="btn bdark" onclick="backupTable('${tbl}')" style="flex-shrink:0">
+              <i class="ti ti-download" style="font-size:13px" aria-hidden="true"></i> Download
+            </button>
+          </div>`).join('')}
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)">
+          <button class="btn bpri" onclick="backupAll()" style="width:100%;justify-content:center;padding:10px">
+            <i class="ti ti-database-export" style="font-size:14px" aria-hidden="true"></i>
+            &nbsp;Download all tables (one by one)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function backupTable(tbl){
+  toast('Preparing ' + tbl + ' export...');
+  const BATCH=1000;
+  let allData=[],from=0,fetching=true;
+  while(fetching){
+    const{data,error}=await sb.from(tbl).select('*').range(from,from+BATCH-1);
+    if(error){toast('Error: '+error.message,1);return;}
+    allData=allData.concat(data||[]);
+    if(!data||data.length<BATCH)fetching=false;
+    else from+=BATCH;
+    if(allData.length>0)toast('Fetching '+tbl+'... '+allData.length+' rows');
+  }
+  if(!allData.length){toast('No data in '+tbl,1);return;}
+  const cols=Object.keys(allData[0]);
+  function csvEsc(v){if(v==null)return'';var s=String(v);if(s.indexOf(',')>-1||s.indexOf('"')>-1||s.indexOf(String.fromCharCode(10))>-1){return'"'+s.replace(/"/g,'""')+'"';}return s;}
+  var rows=[cols.join(',')];
+  allData.forEach(r=>rows.push(cols.map(c=>csvEsc(r[c])).join(',')));
+  var blob=new Blob([rows.join(String.fromCharCode(10))],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var stamp=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href=url;a.download='Digitus_'+tbl+'_'+stamp+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Downloaded '+allData.length.toLocaleString()+' rows from '+tbl);
+}
+
+async function backupAll(){
+  const tables=['tickets','sites','staff','lookup_values','users'];
+  for(const t of tables){
+    await backupTable(t);
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  toast('All tables downloaded');
+}
 
 // HELPERS
 function sbadge(s){const m={Open:'bo',Attended:'ba',Pending:'bp',Closed:'bc'};return`<span class="badge ${m[s]||'bo'}">${s||'—'}</span>`;}
