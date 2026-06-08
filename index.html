@@ -932,7 +932,7 @@ async function rTix(){
   <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:900px"><thead><tr>
     ${cols.map(c=>{
       const isSorted=srt.col===c.id;
-      return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc}'};S.tpage=1;rTix()"
+      return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir===("desc")?"asc":"desc"}'};S.tpage=1;rTix()"
         class="${isSorted?'sort-'+srt.dir:''}">${c.l}</th>`;
     }).join('')}
     <th style="width:55px;cursor:default;text-align:center">Action</th>
@@ -2009,20 +2009,24 @@ function openNewTicketPanel(){
     <div style="padding:18px;flex:1">
       <div class="fg">
         <div class="ff full"><label>TT / IM Number *</label><input type="text" id="nt-1" placeholder="e.g. IM8400001"></div>
-        <div class="ff"><label>Region *</label>
+        <div class="ff full"><label>Region *</label>
           <select id="nt-2"><option value="">Select region</option>${['DXB','NE','AUH','AAN','WR'].map(r=>`<option>${r}</option>`).join('')}</select>
         </div>
-        <div class="ff"><label>Date *</label><input type="date" id="nt-3"></div>
         <div class="ff full"><label>Site ID (raw) *</label>
           <input type="text" id="nt-5" placeholder="e.g. DXBL3164-HUB" oninput="ntResolveSite(this.value)">
           <div id="nt-srok" class="srok"></div><div id="nt-sramb" class="sramb"></div>
         </div>
         <div class="ff"><label>Corrected Site ID</label><input type="text" id="nt-6" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
-        <div class="ff"><label>Site Class</label><input type="text" id="nt-7" placeholder="Auto-filled" readonly style="background:var(--surf2)"></div>
+        <div class="ff"><label>Site Class <span style="font-size:9px;color:var(--text3)">(auto or override)</span></label>
+          <select id="nt-7">
+            <option value="">— auto/select —</option>
+            ${['Class A','Class B','Class C'].map(c=>`<option>${c}</option>`).join('')}
+          </select>
+        </div>
         <div class="ff full"><label>Issue Type *</label><select id="nt-9"><option value="">Select issue</option>${iss}</select></div>
         <div class="ff"><label>BO Team</label><select id="nt-10"><option value="">Select</option>${bo}</select></div>
         <div class="ff"><label>Tech Name</label><select id="nt-11"><option value="">Select</option>${tc}</select></div>
-        <div class="ff"><label>Date Attended</label><input type="date" id="nt-12"></div>
+
         <div class="ff"><label>Status</label>
           <select id="nt-15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select>
         </div>
@@ -2036,7 +2040,6 @@ function openNewTicketPanel(){
       <div id="nt-msg" style="font-size:12px;margin-top:8px;display:none"></div>
     </div>`;
   document.body.appendChild(panel);
-  document.getElementById('nt-3').valueAsDate=new Date();
 }
 
 async function ntResolveSite(raw){
@@ -2055,9 +2058,12 @@ async function ntResolveSite(raw){
     ok.innerHTML='&#10003; Matched: <strong>'+site.site_id+'</strong> &mdash; '+( site.site_class||'')+' &mdash; '+(site.region||'');
     ok.style.display='block';
   }else{
-    amb.innerHTML='&#9888; <strong>'+can+'</strong> not found in MDB';
+    amb.innerHTML='&#9888; <strong>'+can+'</strong> not found in MDB &mdash; please select site class manually below';
     amb.style.display='block';
     document.getElementById('nt-7').value='';
+    // Show site class select for manual override
+    const sc=document.getElementById('nt-7');
+    if(sc)sc.style.borderColor='var(--amber)';
   }
 }
 
@@ -2080,7 +2086,6 @@ async function ntSubmit(){
     tt_issue:iss,
     bo_team:document.getElementById('nt-10').value||null,
     tech_name:document.getElementById('nt-11').value||null,
-    tt_date_attended:document.getElementById('nt-12').value||null,
     status:document.getElementById('nt-15').value,
     remarks:document.getElementById('nt-17').value||null,
     resolution:document.getElementById('nt-18').value||null,
