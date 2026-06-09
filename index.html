@@ -2137,32 +2137,39 @@ function lookupSite(rawId){
   if(!rawId)return null;
   const upper=rawId.toUpperCase().trim();
 
-  // 1. Exact match
-  if(hpsmSiteMap[upper])return hpsmSiteMap[upper];
+  // Helper: try a value against the map, return entry or null
+  const try_=(v)=>v&&hpsmSiteMap[v]?hpsmSiteMap[v]:null;
 
-  // 2. Strip common HPSM noise and try exact match again
-  const noUnderscore=upper.replace(/_.*$/,'').trim();
-  const noSpace=upper.replace(/\s.*$/,'').trim();
-  const noDash=upper.replace(/-.*$/,'').trim();
+  // Build all candidate variants to try
+  const candidates=new Set();
 
-  for(const c of [noUnderscore,noSpace,noDash]){
-    if(c&&c!==upper&&hpsmSiteMap[c])return hpsmSiteMap[c];
+  // 1. Exact
+  candidates.add(upper);
+
+  // 2. Strip trailing noise: underscore, space, dash suffixes
+  candidates.add(upper.replace(/_.*$/,'').trim());
+  candidates.add(upper.replace(/\s.*$/,'').trim());
+  candidates.add(upper.replace(/-.*$/,'').trim());
+
+  // 3. Strip technology infixes: DXBNR0915→DXB0915, AUHL4G2535→AUHL2535
+  const techRe=/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}[A-Z0-9]*)$/;
+  for(const c of [...candidates]){
+    const s=c.replace(techRe,'$1$3');
+    if(s!==c)candidates.add(s);
   }
 
-  // 3. Strip technology infixes (NR, 4G, 3G, 2G, LTE, 5G) from middle of site code
-  // Rule: site IDs are 3 letters + 4 numbers e.g. DXB0915, AUH2757
-  // HPSM sometimes inserts tech type: DXBNR0915 → DXB0915, AUHL4G2535 → AUHL2535
-  const techStripped=upper.replace(/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}.*)$/,'$1$3');
-  if(techStripped!==upper&&hpsmSiteMap[techStripped])return hpsmSiteMap[techStripped];
-  // Also try stripping from cleaned versions
-  for(const c of [noUnderscore,noSpace,noDash]){
-    if(!c||c===upper)continue;
-    const cs=c.replace(/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}.*)$/,'$1$3');
-    if(cs!==c&&hpsmSiteMap[cs])return hpsmSiteMap[cs];
+  // 4. Strip numeric prefix: "1586-RAK3439-2" → "RAK3439", "4038-SHJ5423-1" → "SHJ5423"
+  // Pattern: digits-LETTERS followed by optional -suffix
+  const numPrefixRe=/^\d+[-_]([A-Z]{2,6}[0-9]{3,6}[A-Z0-9]*?)(?:[-_]\d+)?$/;
+  const numMatch=upper.match(numPrefixRe);
+  if(numMatch)candidates.add(numMatch[1]);
+
+  // Try all candidates — exact match wins
+  for(const c of candidates){
+    if(c&&hpsmSiteMap[c])return hpsmSiteMap[c];
   }
 
-  // 4. Reverse prefix only: raw value is LONGER than the key
-  // e.g. raw=AUHL0795 - Citi Bank (len 21), key=AUHL0795 (len 8) → valid match
+  // 5. Reverse prefix: raw longer than key (strips trailing noise not caught above)
   for(const k of hpsmSiteKeys){
     if(k.length>=5&&k.length<=upper.length&&upper.startsWith(k))return hpsmSiteMap[k];
   }
