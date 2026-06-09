@@ -248,7 +248,7 @@ const PP=50;
 let S={user:null,role:'guest',name:'Guest',tab:'dashboard',dashFilter:{region:'',sclass:''},
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
-  tf:{q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''},
+  tf:{q:'',status:'',region:'',issue:'',sclass:'',repeat_min:'',priority:''},
   lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
@@ -262,20 +262,11 @@ function xSite(v){
 }
 
 // URGENT logic:
-// 1. Class A or B — always urgent regardless of issue
-// 2. Any power or AC related issue — urgent regardless of site class
-const URGENT_KEYWORDS=['power','outage','mains','generator','fuel','genset',
-  'rectifier','dc system','module failure','breaker',
-  'ac ','a/c','air condition','cooler','cooling','shelter temp','high temp',
-  'thermostat','hvac','tec ','etc '];
-function isUrgent(issue,sclass){
-  if(!issue)return false;
-  const cls=(sclass||'').trim();
-  const iss=issue.toLowerCase();
-  // Class A or B = always urgent regardless of issue type
-  if(cls==='Class A'||cls==='Class B')return true;
-  // Any power or AC/cooling related issue = urgent regardless of class
-  return URGENT_KEYWORDS.some(k=>iss.includes(k));
+// Urgent = Priority 1 or 2
+function isUrgent(issue,sclass,priority){
+  if(priority===1||priority===2)return true;
+  if(typeof priority==='string'&&(priority==='1'||priority==='2'))return true;
+  return false;
 }
 
 // AUTH
@@ -410,9 +401,9 @@ async function rDash(){
     // Repeat counts via server-side RPC — single fast query
     sb.rpc('get_site_repeat_counts'),
     // Live feed — open tickets only
-    fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
-    // Urgent
-    fq(sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks,resolution,closure_remarks,battery_status,updated_by,site_type,site_id_raw,tt_date_attended').in('status',['Open','Pending']).order('ticket_date',{ascending:true}).limit(500)),
+    fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended,priority').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
+    // Urgent — priority 1 or 2
+    fq(sb.from('tickets').select('id,tt_number,site_id_canonical,site_class,tt_issue,ticket_date,region,status,bo_team,tech_name,remarks,resolution,closure_remarks,battery_status,updated_by,site_type,site_id_raw,tt_date_attended,priority').in('status',['Open','Pending']).in('priority',[1,2]).order('ticket_date',{ascending:true}).limit(500)),
   ]);
 
   const T=tot.count||0,O=opn.count||0,P=pnd.count||0,A=att.count||0,C=cls.count||0;
@@ -442,7 +433,7 @@ async function rDash(){
   S._siteLastSeen=siteLastSeen;
 
   // Urgent filtered
-  const urgFiltered=(urgRes.data||[]).filter(t=>isUrgent(t.tt_issue,t.site_class)).slice(0,15);
+  const urgFiltered=(urgRes.data||[]).slice(0,15);
   const rec=recRes.data||[];
 
   _lastRefresh=new Date();
@@ -453,14 +444,16 @@ async function rDash(){
 
   const ticketRow=(t,showUrg)=>{
     const repCnt=siteCounts[t.site_id_canonical]||1;
-    const urg=showUrg&&isUrgent(t.tt_issue,t.site_class)&&(t.status==='Open'||t.status==='Pending');
+    const urg=showUrg&&isUrgent(t.tt_issue,t.site_class,t.priority)&&(t.status==='Open'||t.status==='Pending');
+    const priNum=t.priority?parseInt(t.priority):null;
+    const priBadge=priNum?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:3px;background:${priNum===1?'#7f1d1d':priNum===2?'#991b1b':priNum===3?'#92400e':'#374151'};color:#fff">P${priNum}</span>`:'';
     return`<tr onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
       style="cursor:pointer;${urg?'background:#fff5f5;border-left:3px solid var(--pri)':''}"
       onmouseover="this.style.background='${urg?'#fff0f0':'var(--surf2)'}'" onmouseout="this.style.background='${urg?'#fff5f5':''}'">
       <td style="padding:8px 12px;font-size:10px;font-family:monospace;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.tt_number||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:500;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_id_canonical||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
+      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${priBadge}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}" title="${repCnt>1?'Click to see all tickets for this site':''}">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
@@ -574,7 +567,7 @@ async function rDash(){
       <div class="dpanel-head" style="background:#fef2f2;border-color:#fecaca">
         <div class="urg-head-link" onclick="goToUrgentTickets()">
           <span class="pulse-dot"></span>
-          <div class="dpanel-title" style="color:#991b1b" title="Click to view all urgent tickets">Urgent tickets &mdash; Class A/B + AC/Power issues</div>
+          <div class="dpanel-title" style="color:#991b1b" title="Click to view all urgent tickets">Urgent tickets &mdash; Priority 1 &amp; 2</div>
           <i class="ti ti-arrow-right" style="font-size:12px;color:#991b1b;opacity:.6" aria-hidden="true"></i>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -890,6 +883,8 @@ async function rTix(){
   if(f.status)q=q.eq('status',f.status);
   if(f.region)q=q.eq('region',f.region);
   if(f.sclass)q=q.eq('site_class',f.sclass);
+  if(f.priority==='urgent')q=q.in('priority',[1,2]);
+  else if(f.priority)q=q.eq('priority',parseInt(f.priority));
   const fr=(S.tpage-1)*PP,to=fr+PP-1;
   const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
   S.tickets=data||[];S.ttotal=count||0;
@@ -899,6 +894,7 @@ async function rTix(){
     {id:'tt_number',l:'TT Number',w:'105px'},
     {id:'region',l:'Region',w:'55px'},
     {id:'ticket_date',l:'Date',w:'85px'},
+    {id:'priority',l:'Prio',w:'50px'},
     {id:'site_id_canonical',l:'Corrected ID',w:'90px'},
     {id:'tt_issue',l:'Issue',w:'170px'},
     {id:'bo_team',l:'BO Team',w:'100px'},
@@ -914,17 +910,25 @@ async function rTix(){
       oninput="S.tf.q=this.value;S.tpage=1;rTix()">
     <select onchange="S.tf.status=this.value;S.tpage=1;rTix()">
       <option value="">All statuses</option>
-      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>` +s+ `</option>`).join('')}
+      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>`+s+`</option>`).join('')}
     </select>
     <select onchange="S.tf.region=this.value;S.tpage=1;rTix()">
       <option value="">All regions</option>
-      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>` +r+ `</option>`).join('')}
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>`+r+`</option>`).join('')}
     </select>
     <select onchange="S.tf.sclass=this.value;S.tpage=1;rTix()">
       <option value="">All classes</option>
       <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
       <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
       <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
+    </select>
+    <select onchange="S.tf.priority=this.value;S.tpage=1;rTix()" style="min-width:120px">
+      <option value="">All priorities</option>
+      <option value="urgent"${f.priority==='urgent'?' selected':''}>🔴 P1 &amp; P2 (Urgent)</option>
+      <option value="1"${f.priority==='1'?' selected':''}>P1 — Critical</option>
+      <option value="2"${f.priority==='2'?' selected':''}>P2 — High</option>
+      <option value="3"${f.priority==='3'?' selected':''}>P3 — Medium</option>
+      <option value="4"${f.priority==='4'?' selected':''}>P4 — Low</option>
     </select>
     <select onchange="S.tf.repeat_min=this.value;S.tpage=1;rTix()" style="min-width:130px">
       <option value="">Any repeat count</option>
@@ -933,23 +937,27 @@ async function rTix(){
       <option value="10"${f.repeat_min==='10'?' selected':''}>10+ tickets</option>
       <option value="20"${f.repeat_min==='20'?' selected':''}>20+ tickets</option>
     </select>
-    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
+    <button class="btn" onclick="S.tf={q:'',status:'',region:'',issue:'',sclass:'',repeat_min:'',priority:''};S.tsort={col:'ticket_date',dir:'desc'};S.tpage=1;rTix()">Clear</button>
     <button class="btn" onclick="dlTix()">&#8595; Download CSV</button>
     ${ce?'<button class="btn bpri" onclick="openNewTicketPanel()">+ New Ticket</button>':''}
   </div>
-  <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:900px"><thead><tr>
+  <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:960px"><thead><tr>
     ${cols.map(c=>{
       const isSorted=srt.col===c.id;
-      return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir===("desc")?"asc":"desc"}'};S.tpage=1;rTix()"
+      return`<th style="width:${c.w}" onclick="S.tsort={col:'${c.id}',dir:'${isSorted&&srt.dir===('desc')?'asc':'desc'}'};S.tpage=1;rTix()"
         class="${isSorted?'sort-'+srt.dir:''}">${c.l}</th>`;
     }).join('')}
     <th style="width:55px;cursor:default;text-align:center">Action</th>
   </tr></thead><tbody>
-    ${S.tickets.length===0?`<tr><td colspan="11" class="empty">No tickets found</td></tr>`:
-      S.tickets.map(t=>`<tr onclick="expandTicket(JSON.parse(this.dataset.t))" data-t="${JSON.stringify(t).replace(/"/g,'&quot;')}" style="cursor:pointer">
+    ${S.tickets.length===0?`<tr><td colspan="12" class="empty">No tickets found</td></tr>`:
+      S.tickets.map(t=>{
+        const pn=t.priority?parseInt(t.priority):null;
+        const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span>`:'<span style="color:var(--text3)">—</span>';
+        return`<tr onclick="expandTicket(JSON.parse(this.dataset.t))" data-t="${JSON.stringify(t).replace(/"/g,'&quot;')}" style="cursor:pointer">
         <td style="font-family:monospace;font-size:11px;color:var(--text2)">${t.tt_number||'—'}</td>
         <td><span class="badge bp" style="font-size:10px">${t.region}</span></td>
         <td style="font-size:11px;color:var(--text2)">${t.ticket_date||'—'}</td>
+        <td style="text-align:center">${pb}</td>
         <td style="font-weight:500;font-size:12px">${t.site_id_canonical||'—'}</td>
         <td style="font-size:11px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
         <td style="font-size:11px;color:var(--text2)" title="${t.bo_team||''}">${t.bo_team||'—'}</td>
@@ -958,11 +966,13 @@ async function rTix(){
         <td style="font-size:11px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
         <td style="font-size:11px;color:var(--text2)">${t.updated_by||'—'}</td>
         <td onclick="event.stopPropagation()"><button class="btn bsm" onclick="editTicket(${t.id})" style="padding:3px 8px;font-size:11px">Edit</button></td>
-      </tr>`).join('')}
+      </tr>`;}).join('')}
   </tbody></table></div>
   ${pgn(S.ttotal,S.tpage,'S.tpage','rTix')}
   </div>`;
 }
+
+
 
 async function updSt(id,st){
   const{error}=await sb.from('tickets').update({status:st,updated_by:S.name}).eq('id',id);
@@ -998,6 +1008,7 @@ function rNew(){
       <div class="ff"><label>Date Attended</label><input type="date" id="f12"></div>
       <div class="ff"><label>Outage Start</label><input type="datetime-local" id="f13"></div>
       <div class="ff"><label>Battery Status</label><select id="f14"><option value="">Select</option>${(S.lkp.battery_status||[]).map(b=>`<option>${b}</option>`).join('')}</select></div>
+      <div class="ff"><label>Priority *</label><select id="f-pri"><option value="">Select priority</option><option value="1">P1 — Critical</option><option value="2">P2 — High</option><option value="3">P3 — Medium</option><option value="4">P4 — Low</option></select></div>
       <div class="ff"><label>Status</label><select id="f15">${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option>${s}</option>`).join('')}</select></div>
       <div class="ff full"><label>Battery Remarks</label><input type="text" id="f16" placeholder="Optional"></div>
       <div class="ff full"><label>Remarks</label><textarea id="f17" placeholder="General remarks…"></textarea></div>
@@ -1053,6 +1064,7 @@ async function subTix(){
     outage_start:document.getElementById('f13').value||null,
     battery_status:document.getElementById('f14').value||null,
     status:document.getElementById('f15').value,
+    priority:document.getElementById('f-pri').value?parseInt(document.getElementById('f-pri').value):null,
     battery_remarks:document.getElementById('f16').value||null,
     remarks:document.getElementById('f17').value||null,
     resolution:document.getElementById('f18').value||null,
@@ -1419,6 +1431,11 @@ function editTicket(id){
           <select id="et-status">
             ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}
           </select></div>
+        <div class="ff"><label>Priority</label>
+          <select id="et-priority">
+            <option value="">— no change —</option>
+            ${[['1','P1 — Critical'],['2','P2 — High'],['3','P3 — Medium'],['4','P4 — Low']].map(([v,l])=>`<option value="${v}"${String(t.priority)===v?' selected':''}>${l}</option>`).join('')}
+          </select></div>
         <div class="ff"><label>Date Attended</label>
           <input type="date" id="et-attended" value="${t.tt_date_attended||''}"></div>
         <div class="ff"><label>BO Team</label>
@@ -1476,6 +1493,7 @@ async function saveTicketEdit(id){
   if(siteTyp)payload.site_type=siteTyp;
   const iss=document.getElementById('et-issue').value;
   const st=document.getElementById('et-status').value;
+  const pri=document.getElementById('et-priority').value;
   const at=document.getElementById('et-attended').value;
   const bo=document.getElementById('et-bo').value;
   const tc=document.getElementById('et-tech').value;
@@ -1488,6 +1506,7 @@ async function saveTicketEdit(id){
 
   if(iss)payload.tt_issue=iss;
   if(st)payload.status=st;
+  if(pri)payload.priority=parseInt(pri);
   if(at)payload.tt_date_attended=at; else payload.tt_date_attended=null;
   if(bo)payload.bo_team=bo;
   if(tc)payload.tech_name=tc;
@@ -1855,7 +1874,7 @@ async function refreshLiveFeed(){
     return q;
   };
   const{data:rec}=await fq(
-    sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended')
+    sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended,priority')
     .eq('status','Open').order('created_at',{ascending:false}).limit(15)
   );
   _lastRefresh=new Date();
@@ -1875,13 +1894,15 @@ async function refreshLiveFeed(){
   }
   liveBody.innerHTML=rec.map(t=>{
     const repCnt=siteCounts[t.site_id_canonical]||1;
+    const pn=t.priority?parseInt(t.priority):null;
+    const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span> `:'';
     return`<tr onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
       style="cursor:pointer"
       onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background=''">
       <td style="padding:8px 12px;font-size:10px;font-family:monospace;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.tt_number||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:500;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_id_canonical||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
-      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${pb}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
@@ -2034,6 +2055,15 @@ function openNewTicketPanel(){
           </select>
         </div>
         <div class="ff full"><label>Issue Type *</label><select id="nt-9"><option value="">Select issue</option>${iss}</select></div>
+        <div class="ff"><label>Priority *</label>
+          <select id="nt-pri">
+            <option value="">Select priority</option>
+            <option value="1">P1 — Critical</option>
+            <option value="2">P2 — High</option>
+            <option value="3">P3 — Medium</option>
+            <option value="4">P4 — Low</option>
+          </select>
+        </div>
         <div class="ff"><label>BO Team</label><select id="nt-10"><option value="">Select</option>${bo}</select></div>
         <div class="ff"><label>Tech Name</label><select id="nt-11"><option value="">Select</option>${tc}</select></div>
 
@@ -2101,6 +2131,7 @@ async function ntSubmit(){
     bo_team:document.getElementById('nt-10').value||null,
     tech_name:document.getElementById('nt-11').value||null,
     status:document.getElementById('nt-15').value,
+    priority:document.getElementById('nt-pri').value?parseInt(document.getElementById('nt-pri').value):null,
     remarks:document.getElementById('nt-17').value||null,
     resolution:document.getElementById('nt-18').value||null,
     opened_by:S.name,updated_by:S.name,
@@ -2118,19 +2149,17 @@ async function ntSubmit(){
 
 
 function goToUrgentTickets(){
-  // Filter All Tickets to show open tickets that are Class A/B
-  // (user can further refine — full urgent filtering requires client-side logic)
   S.tf.q='';
   S.tf.status='Open';
   S.tf.region=S.dashFilter&&S.dashFilter.region?S.dashFilter.region:'';
   S.tf.sclass='';
   S.tf.repeat_min='';
+  S.tf.priority='urgent';
   S.tsort={col:'ticket_date',dir:'asc'};
   S.tpage=1;
   renderTab('tickets');
-  // After tab renders, show a notice
   setTimeout(()=>{
-    toast('Showing open tickets — filter by Class A or B to see all urgent');
+    toast('Showing open P1 & P2 urgent tickets');
   },300);
 }
 
@@ -2139,7 +2168,7 @@ function expandTicket(t){
   const ex=document.getElementById('ticket-expand');
   if(ex)ex.remove();
   if(!t||!t.tt_number)return;
-  const urg=isUrgent(t.tt_issue,t.site_class)&&(t.status==='Open'||t.status==='Pending');
+  const urg=isUrgent(t.tt_issue,t.site_class,t.priority)&&(t.status==='Open'||t.status==='Pending');
   const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
   const panel=document.createElement('div');
   panel.id='ticket-expand';
@@ -2158,6 +2187,7 @@ function expandTicket(t){
         ${[
           ['Site (raw)',t.site_id_raw||'—'],
           ['Corrected site ID',t.site_id_canonical||'—'],
+          ['Priority',t.priority?'P'+t.priority+(['','— Critical','— High','— Medium','— Low'][t.priority]||''):'—'],
           ['Site class',t.site_class||'—'],
           ['Site type',t.site_type||'—'],
           ['Issue type',t.tt_issue||'—'],
