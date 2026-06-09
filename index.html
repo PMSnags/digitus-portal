@@ -2140,7 +2140,7 @@ function lookupSite(rawId){
   // 1. Exact match
   if(hpsmSiteMap[upper])return hpsmSiteMap[upper];
 
-  // 2. Strip common HPSM noise and try again
+  // 2. Strip common HPSM noise and try exact match again
   const noUnderscore=upper.replace(/_.*$/,'').trim();
   const noSpace=upper.replace(/\s.*$/,'').trim();
   const noDash=upper.replace(/-.*$/,'').trim();
@@ -2149,17 +2149,11 @@ function lookupSite(rawId){
     if(c&&c!==upper&&hpsmSiteMap[c])return hpsmSiteMap[c];
   }
 
-  // 3. Check if any known site key is a prefix of rawId (min 5 chars)
-  // e.g. rawId=AUHL0795 - Citi Bank, key=AUHL0795 → match
+  // 3. Reverse prefix only: raw value is LONGER than the key
+  // e.g. raw=AUHL0795 - Citi Bank (len 21), key=AUHL0795 (len 8) → valid match
+  // Do NOT match when key is longer than raw — that means a different site (e.g. DXBNR21406 vs DXBNR2140)
   for(const k of hpsmSiteKeys){
-    if(k.length>=5&&upper.startsWith(k))return hpsmSiteMap[k];
-  }
-
-  // 4. Check if rawId (cleaned) is a prefix of a known key
-  // e.g. rawId=AUH2757, key=AUH2757L → match if key is close in length
-  const base=noUnderscore||noSpace||upper;
-  for(const k of hpsmSiteKeys){
-    if(base.length>=5&&k.startsWith(base)&&k.length<=base.length+3)return hpsmSiteMap[k];
+    if(k.length>=5&&k.length<=upper.length&&upper.startsWith(k))return hpsmSiteMap[k];
   }
 
   return null;
@@ -2313,7 +2307,7 @@ function hpsmRenderPreview(){
         <th style="width:100px;cursor:default">TT Number</th>
         <th style="width:220px;cursor:default">Issue / Title</th>
         <th style="width:110px;cursor:default">Site ID Raw</th>
-        <th style="width:110px;cursor:default">Canonical</th>
+        <th style="width:110px;cursor:default">Corrected Site ID</th>
         <th style="width:60px;cursor:default">Class</th>
         <th style="width:55px;cursor:default">Region</th>
         <th style="width:45px;cursor:default">Prio</th>
