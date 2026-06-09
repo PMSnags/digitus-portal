@@ -2149,9 +2149,20 @@ function lookupSite(rawId){
     if(c&&c!==upper&&hpsmSiteMap[c])return hpsmSiteMap[c];
   }
 
-  // 3. Reverse prefix only: raw value is LONGER than the key
+  // 3. Strip technology infixes (NR, 4G, 3G, 2G, LTE, 5G) from middle of site code
+  // Rule: site IDs are 3 letters + 4 numbers e.g. DXB0915, AUH2757
+  // HPSM sometimes inserts tech type: DXBNR0915 → DXB0915, AUHL4G2535 → AUHL2535
+  const techStripped=upper.replace(/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}.*)$/,'$1$3');
+  if(techStripped!==upper&&hpsmSiteMap[techStripped])return hpsmSiteMap[techStripped];
+  // Also try stripping from cleaned versions
+  for(const c of [noUnderscore,noSpace,noDash]){
+    if(!c||c===upper)continue;
+    const cs=c.replace(/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}.*)$/,'$1$3');
+    if(cs!==c&&hpsmSiteMap[cs])return hpsmSiteMap[cs];
+  }
+
+  // 4. Reverse prefix only: raw value is LONGER than the key
   // e.g. raw=AUHL0795 - Citi Bank (len 21), key=AUHL0795 (len 8) → valid match
-  // Do NOT match when key is longer than raw — that means a different site (e.g. DXBNR21406 vs DXBNR2140)
   for(const k of hpsmSiteKeys){
     if(k.length>=5&&k.length<=upper.length&&upper.startsWith(k))return hpsmSiteMap[k];
   }
