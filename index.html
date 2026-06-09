@@ -2085,7 +2085,7 @@ async function ntSubmit(){
   }
   const{error}=await sb.from('tickets').insert([{
     tt_number:tt,region:rg,
-    ticket_date:document.getElementById('nt-3').value||null,
+    ticket_date:new Date().toISOString().slice(0,10),
     site_id_raw:document.getElementById('nt-5').value.trim()||null,
     site_id_canonical:document.getElementById('nt-6').value.trim()||null,
     site_class:document.getElementById('nt-7').value||null,
