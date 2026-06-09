@@ -320,6 +320,7 @@ function tabs_fn(){
   }
   if(S.role==='admin'){
     t.push({id:'new_ticket',l:'New Ticket'});
+    t.push({id:'hpsm_import',l:'HPSM Import'});
     t.push({id:'kpi',l:'KPI Report'});
     t.push({id:'mstaff',l:'Manage Staff & Users'});
     t.push({id:'mlkp',l:'Manage Dropdowns'});
@@ -330,11 +331,12 @@ function tabs_fn(){
 function renderNav(){
   const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',
     new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',
+    hpsm_import:'ti-file-upload',
     profile:'ti-user',kpi:'ti-chart-bar',mstaff:'ti-users',mlkp:'ti-adjustments',backup:'ti-database-export'};
   const tabs=tabs_fn();
   const mainTabs=['dashboard','tickets','kpi'];
   const opsTabs=['new_ticket','cleaner','bulk'];
-  const adminTabs=['mstaff','mlkp'];
+  const adminTabs=['hpsm_import','mstaff','mlkp'];
   const otherTabs=['profile'];
   let html='';
   tabs.forEach((t,i)=>{
@@ -355,7 +357,7 @@ function renderTab(t){
   if(t==='dashboard'){startAutoRefresh();}else{stopAutoRefresh();}
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
-  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();else if(t==='backup')rBackup();}
+  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();else if(t==='backup')rBackup();else if(t==='hpsm_import')rHpsm();}
 
 // DASHBOARD
 async function rDash(){
@@ -1969,7 +1971,391 @@ document.addEventListener('visibilitychange', ()=>{
 
 
 // BACKUP DATA
-async function rBackup(){
+// ── HPSM IMPORT ────────────────────────────────────────────────────────────────
+
+// Default HPSM → portal status mapping (can be overridden via lookup_values)
+const HPSM_STATUS_DEFAULT={
+  'open':'Open','accepted':'Open','reassigned':'Open',
+  'in progress':'Attended','pending input':'Pending',
+  'resolved':'Closed','closed':'Closed'
+};
+
+function getHpsmStatusMap(){
+  // Check lookup_values for admin overrides (category = 'hpsm_status_map', value = 'HPSM Status|Portal Status')
+  const overrides={};
+  (S.lkp.hpsm_status_map||[]).forEach(v=>{
+    const parts=v.split('|');
+    if(parts.length===2)overrides[parts[0].toLowerCase().trim()]=parts[1].trim();
+  });
+  return Object.assign({},HPSM_STATUS_DEFAULT,overrides);
+}
+
+function parseHpsmDate(v){
+  if(!v||String(v).trim()==='')return null;
+  const s=String(v).trim();
+  // Try DD/MM/YYYY HH:MM or MM/DD/YY HH:MM:SS or YYYY-MM-DD
+  const patterns=[
+    {r:/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/,fn:m=>`${m[3]}-${m[2]}-${m[1]}`},
+    {r:/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2}:\d{2})/,fn:m=>`20${m[3]}-${m[1]}-${m[2]}`},
+    {r:/^(\d{2})\/(\d{2})\/(\d{4})$/,fn:m=>`${m[3]}-${m[2]}-${m[1]}`},
+    {r:/^(\d{4})-(\d{2})-(\d{2})/,fn:m=>`${m[1]}-${m[2]}-${m[3]}`},
+  ];
+  for(const p of patterns){const m=s.match(p.r);if(m)return p.fn(m);}
+  return null;
+}
+
+function extractSiteFromTitle(title){
+  if(!title)return null;
+  // Pattern: "SITECODE : description" or "SITECODE -- description"
+  const m=String(title).match(/^([A-Z0-9]{4,12})\s*[:\-]/);
+  return m?m[1].trim():null;
+}
+
+function inferRegion(assignmentGroup,siteId){
+  if(!assignmentGroup&&!siteId)return'';
+  const ag=(assignmentGroup||'').toUpperCase();
+  const si=(siteId||'').toUpperCase();
+  if(ag.includes('- AUH')||ag.includes('AUH AAN')||si.startsWith('AUH')||si.startsWith('IAD')||si.startsWith('IADL')||si.startsWith('AUHL')||si.startsWith('AUGL'))return'AUH';
+  if(ag.includes('- DXB')||ag.includes('FLM DXB')||si.startsWith('DXB')||si.startsWith('DUBL'))return'DXB';
+  if(ag.includes('- NE')||ag.includes('FLM NE')||si.startsWith('SHJ')||si.startsWith('SHJL')||si.startsWith('AJM')||si.startsWith('UAQ')||si.startsWith('RAK')||si.startsWith('FUJ'))return'NE';
+  if(ag.includes('AAN')||si.startsWith('AAN'))return'AAN';
+  if(ag.includes('WR')||si.startsWith('WR'))return'WR';
+  return'';
+}
+
+// Parse uploaded CSV text into row objects
+function parseHpsmCsv(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2)return[];
+  // Parse header — handle quoted fields
+  function parseLine(line){
+    const res=[];let cur='';let inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
+      else if(c===','&&!inQ){res.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+    res.push(cur.trim());
+    return res;
+  }
+  const headers=parseLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const vals=parseLine(lines[i]);
+    if(vals.length<2)continue;
+    const row={};
+    headers.forEach((h,j)=>row[h]=vals[j]?vals[j].replace(/^"|"$/g,'').trim():'');
+    rows.push(row);
+  }
+  return rows;
+}
+
+// Map HPSM row → portal ticket object
+function mapHpsmRow(row,siteMap,statusMap){
+  const ttNum=row['Incident ID']||row['incident_id']||'';
+  const title=row['Title']||row['title']||'';
+  const affectedCI=row['Affected CI']||row['affected_ci']||'';
+  const priority=row['Priority']||row['priority']||'';
+  const duAlarm=row['Du Alarm Date']||row['du_alarm_date']||'';
+  const openTime=row['Open Time']||row['open_time']||'';
+  const assignee=row['Assignee']||row['assignee']||'';
+  const assignGroup=row['Assignment Group']||row['assignment_group']||'';
+  const resolution=row['Resolution Action']||row['resolution_action']||'';
+  const hpsmStatus=(row['Status']||row['status']||'').toLowerCase().trim();
+
+  // Site ID: Affected CI first, fallback to Title parse
+  let siteRaw=affectedCI.trim();
+  let siteSource='CI';
+  if(!siteRaw){
+    siteRaw=extractSiteFromTitle(title)||'';
+    siteSource=siteRaw?'Title':'';
+  }
+
+  // Lookup canonical site
+  const siteEntry=siteRaw?siteMap[siteRaw.toUpperCase()]:null;
+  const siteCanonical=siteEntry?siteEntry.canonical:siteRaw;
+  const siteClass=siteEntry?siteEntry.class:'';
+
+  // Priority map
+  const priMap={'1':1,'1 - critical':1,'2':2,'2 - high':2,'3':3,'3 - medium':3,'4':4,'4 - low':4};
+  const priNum=priMap[priority.toLowerCase().trim()]||null;
+
+  // Status map
+  const portalStatus=statusMap[hpsmStatus]||'Open';
+
+  // Region
+  const region=inferRegion(assignGroup,siteRaw);
+
+  return{
+    tt_number:ttNum,
+    tt_issue:title,
+    site_id_raw:siteRaw,
+    site_id_canonical:siteCanonical,
+    site_class:siteClass,
+    priority:priNum,
+    ticket_date:parseHpsmDate(duAlarm),
+    outage_start:parseHpsmDate(openTime),
+    tech_name:assignee,
+    bo_team:assignGroup,
+    resolution:resolution||null,
+    status:portalStatus,
+    region:region,
+    vops:'NO',
+    opened_by:S.name,
+    updated_by:S.name,
+    _siteSource:siteSource,
+    _hpsmStatus:row['Status']||'',
+    _unresolved:!siteEntry&&!!siteRaw,
+  };
+}
+
+// State for HPSM import session
+let hpsmRows=[];
+let hpsmSiteMap={};
+
+async function rHpsm(){
+  const mc=document.getElementById('mc');
+
+  // Build site map from sites table: siteCode(upper) → {canonical, class}
+  const{data:sites}=await sb.from('sites').select('site_id,new_site_code,old_site_code,bts_3g,lte_code,code_5g,site_class');
+  hpsmSiteMap={};
+  (sites||[]).forEach(s=>{
+    const cls=s.site_class||'';
+    const canonical=s.site_id||'';
+    ['site_id','new_site_code','old_site_code','bts_3g','lte_code','code_5g'].forEach(col=>{
+      if(s[col])hpsmSiteMap[String(s[col]).toUpperCase()]={canonical,class:cls};
+    });
+  });
+
+  // Load HPSM status mapping overrides from lookup_values
+  await loadLkp();
+
+  mc.innerHTML=`
+  <div style="max-width:960px">
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-file-upload" style="margin-right:6px"></i>HPSM Import</div>
+        <span style="font-size:11px;color:var(--text3)">Upload a CSV exported from HPSM to import tickets into the portal</span>
+      </div>
+      <div class="cb">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2);border:1px dashed var(--border);padding:10px 18px;border-radius:6px;font-size:13px;color:var(--text2);transition:border-color .2s"
+            onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--border)'">
+            <i class="ti ti-upload" style="font-size:16px;color:var(--pri)"></i>
+            Choose CSV file
+            <input type="file" accept=".csv" style="display:none" onchange="hpsmLoadFile(this)">
+          </label>
+          <div style="font-size:12px;color:var(--text3)">
+            Expected columns: <strong>Incident ID, Title, Status, Affected CI, Priority, Du Alarm Date, Open Time, Assignee, Assignment Group, Resolution Action</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hpsm-preview"></div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><div class="ct"><i class="ti ti-adjustments" style="margin-right:6px"></i>HPSM Status Mapping</div>
+        <span style="font-size:11px;color:var(--text3)">How HPSM statuses map to portal statuses</span>
+      </div>
+      <div class="cb">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">HPSM Status</th>
+            <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">→ Portal Status</th>
+            <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">Override</th>
+          </tr></thead>
+          <tbody>
+            ${Object.entries(HPSM_STATUS_DEFAULT).map(([h,p])=>{
+              const override=(S.lkp.hpsm_status_map||[]).find(v=>v.toLowerCase().startsWith(h+'|'));
+              const effective=override?override.split('|')[1]:p;
+              return`<tr>
+                <td style="padding:6px 10px;border-bottom:0.5px solid var(--border);font-family:monospace;color:var(--text2)">${h}</td>
+                <td style="padding:6px 10px;border-bottom:0.5px solid var(--border)">${sbadge(effective)}</td>
+                <td style="padding:6px 10px;border-bottom:0.5px solid var(--border)">
+                  <select style="font-size:11px;padding:2px 6px;background:var(--surf2);border:1px solid var(--border);border-radius:4px;color:var(--text1)"
+                    onchange="hpsmSetMap('${h}',this.value)">
+                    ${['Open','Attended','Pending','Closed'].map(s=>`<option${effective===s?' selected':''}>${s}</option>`).join('')}
+                  </select>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function hpsmSetMap(hpsmStatus,portalStatus){
+  // Remove old override if exists
+  const existing=(S.lkp.hpsm_status_map||[]);
+  const oldEntry=existing.find(v=>v.toLowerCase().startsWith(hpsmStatus+'|'));
+  if(oldEntry){
+    const{data}=await sb.from('lookup_values').select('id').eq('category','hpsm_status_map').eq('value',oldEntry);
+    if(data&&data[0])await sb.from('lookup_values').delete().eq('id',data[0].id);
+  }
+  // Insert new override (only if different from default)
+  if(HPSM_STATUS_DEFAULT[hpsmStatus]!==portalStatus){
+    await sb.from('lookup_values').insert([{category:'hpsm_status_map',value:`${hpsmStatus}|${portalStatus}`}]);
+  }
+  await loadLkp();
+  toast('Status mapping updated');
+}
+
+function hpsmLoadFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const text=e.target.result;
+    const raw=parseHpsmCsv(text);
+    if(!raw.length){toast('No data found in CSV',1);return;}
+    const statusMap=getHpsmStatusMap();
+    hpsmRows=raw.map(r=>mapHpsmRow(r,hpsmSiteMap,statusMap));
+    hpsmRenderPreview();
+  };
+  reader.readAsText(file);
+}
+
+function hpsmRenderPreview(){
+  const total=hpsmRows.length;
+  const unresolved=hpsmRows.filter(r=>r._unresolved).length;
+  const noRegion=hpsmRows.filter(r=>!r.region).length;
+
+  document.getElementById('hpsm-preview').innerHTML=`
+  <div class="card">
+    <div class="ch" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="ct">Preview — ${total.toLocaleString()} rows</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+          ${unresolved>0?`<span style="color:var(--amber)">⚠ ${unresolved} unresolved site IDs</span>&nbsp;&nbsp;`:''}
+          ${noRegion>0?`<span style="color:var(--text3)">${noRegion} rows missing region</span>&nbsp;&nbsp;`:''}
+          <span style="color:var(--green)">✓ ${total-unresolved} sites matched</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="hpsm-only-issues" onchange="hpsmRenderPreview()"> Show unresolved only
+        </label>
+        <button class="btn" onclick="hpsmRenderPreview()">↺ Refresh</button>
+        <button class="btn bpri" onclick="hpsmDoImport()"><i class="ti ti-database-import"></i> Import ${total.toLocaleString()} tickets</button>
+      </div>
+    </div>
+    <div class="tw" style="overflow-x:auto;max-height:480px;overflow-y:auto">
+    <table style="table-layout:auto;min-width:1100px;font-size:11px">
+      <thead style="position:sticky;top:0;background:var(--surf1);z-index:2"><tr>
+        <th style="width:100px;cursor:default">TT Number</th>
+        <th style="width:220px;cursor:default">Issue / Title</th>
+        <th style="width:110px;cursor:default">Site ID Raw</th>
+        <th style="width:110px;cursor:default">Canonical</th>
+        <th style="width:60px;cursor:default">Class</th>
+        <th style="width:55px;cursor:default">Region</th>
+        <th style="width:45px;cursor:default">Prio</th>
+        <th style="width:80px;cursor:default">HPSM Status</th>
+        <th style="width:85px;cursor:default">Portal Status</th>
+        <th style="width:85px;cursor:default">Date</th>
+        <th style="width:55px;cursor:default">Source</th>
+      </tr></thead>
+      <tbody>
+        ${(()=>{
+          const onlyIssues=document.getElementById('hpsm-only-issues')?.checked;
+          const visible=onlyIssues?hpsmRows.filter(r=>r._unresolved):hpsmRows;
+          if(!visible.length)return`<tr><td colspan="11" class="empty">No rows to show</td></tr>`;
+          return visible.map((r,i)=>{
+            const rowBg=r._unresolved?'background:rgba(245,158,11,0.06)':'';
+            const pn=r.priority;
+            const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span>`:'—';
+            return`<tr style="${rowBg}">
+              <td style="font-family:monospace;color:var(--text2);padding:6px 8px;border-bottom:0.5px solid var(--border)">${r.tt_number||'—'}</td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;border-bottom:0.5px solid var(--border)" title="${r.tt_issue||''}">${r.tt_issue||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <input type="text" value="${r.site_id_raw||''}" style="width:100%;font-size:11px;padding:2px 4px;background:${r._unresolved?'rgba(245,158,11,0.1)':'var(--surf2)'};border:1px solid ${r._unresolved?'var(--amber)':'var(--border)'};border-radius:3px;color:var(--text1)"
+                  onchange="hpsmRows[${i}].site_id_raw=this.value;hpsmResolveRow(${i})">
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <input type="text" value="${r.site_id_canonical||''}" style="width:100%;font-size:11px;padding:2px 4px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)"
+                  onchange="hpsmRows[${i}].site_id_canonical=this.value">
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">${cbadge(r.site_class)}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <select style="font-size:10px;padding:1px 3px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)"
+                  onchange="hpsmRows[${i}].region=this.value">
+                  ${['','DXB','NE','AUH','AAN','WR'].map(rv=>`<option${r.region===rv?' selected':''}>${rv}</option>`).join('')}
+                </select>
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);text-align:center">${pb}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);color:var(--text3)">${r._hpsmStatus||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <select style="font-size:10px;padding:1px 3px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)"
+                  onchange="hpsmRows[${i}].status=this.value">
+                  ${['Open','Attended','Pending','Closed'].map(sv=>`<option${r.status===sv?' selected':''}>${sv}</option>`).join('')}
+                </select>
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);color:var(--text2)">${r.ticket_date||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);text-align:center">
+                ${r._siteSource==='CI'?'<span style="color:var(--green);font-size:10px">CI</span>':
+                  r._siteSource==='Title'?'<span style="color:var(--amber);font-size:10px">Title</span>':
+                  '<span style="color:var(--pri);font-size:10px">None</span>'}
+              </td>
+            </tr>`;
+          }).join('');
+        })()}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+}
+
+function hpsmResolveRow(i){
+  const r=hpsmRows[i];
+  const key=(r.site_id_raw||'').toUpperCase();
+  const entry=hpsmSiteMap[key];
+  if(entry){
+    hpsmRows[i].site_id_canonical=entry.canonical;
+    hpsmRows[i].site_class=entry.class;
+    hpsmRows[i]._unresolved=false;
+  } else {
+    hpsmRows[i].site_id_canonical=r.site_id_raw;
+    hpsmRows[i]._unresolved=true;
+  }
+  if(!hpsmRows[i].region)hpsmRows[i].region=inferRegion(r.bo_team,r.site_id_raw);
+  hpsmRenderPreview();
+}
+
+async function hpsmDoImport(){
+  if(!hpsmRows.length){toast('No rows to import',1);return;}
+  const btn=event.target;btn.disabled=true;btn.textContent='Importing…';
+
+  // Strip internal _ fields before upsert
+  const payload=hpsmRows.map(r=>{
+    const{_siteSource,_hpsmStatus,_unresolved,...clean}=r;
+    return clean;
+  });
+
+  const BATCH=200;
+  let done=0;let errors=0;
+  for(let i=0;i<payload.length;i+=BATCH){
+    const chunk=payload.slice(i,i+BATCH);
+    const{error}=await sb.from('tickets').upsert(chunk,{onConflict:'tt_number,ticket_date',ignoreDuplicates:false});
+    if(error){errors++;console.error('Batch error:',error);}
+    done+=chunk.length;
+    toast(`Importing… ${done}/${payload.length}`);
+  }
+
+  if(errors){
+    toast(`Import done with ${errors} batch error(s) — check console`,1);
+  } else {
+    toast(`✓ ${payload.length} tickets imported successfully`);
+  }
+
+  btn.disabled=false;btn.textContent='Import '+payload.length+' tickets';
+  // Refresh to show updated data
+  setTimeout(()=>{hpsmRows=[];renderTab('hpsm_import');},1500);
+}
+
+
   const mc=document.getElementById('mc');
   mc.innerHTML=`
   <div style="max-width:600px">
