@@ -2167,19 +2167,30 @@ function lookupSite(rawId){
 
 async function rHpsm(){
   const mc=document.getElementById('mc');
+  mc.innerHTML='<div class="loading">Loading site data…</div>';
 
-  // Build site map from sites table: siteCode(upper) → {canonical, class}
-  const{data:sites}=await sb.from('sites').select('site_id,new_site_code,old_site_code,bts_3g,lte_code,code_5g,site_class');
+  // Build site map — fetch ALL sites with pagination (Supabase 1000 row limit per call)
   hpsmSiteMap={};
-  (sites||[]).forEach(s=>{
-    const cls=s.site_class||'';
-    const canonical=s.site_id||'';
-    ['site_id','new_site_code','old_site_code','bts_3g','lte_code','code_5g'].forEach(col=>{
-      if(s[col])hpsmSiteMap[String(s[col]).toUpperCase().trim()]={canonical,class:cls};
+  const SBATCH=1000;
+  let sfrom=0,sfetching=true;
+  while(sfetching){
+    const{data:sites,error}=await sb.from('sites')
+      .select('site_id,new_site_code,old_site_code,bts_3g,lte_code,code_5g,site_class')
+      .range(sfrom,sfrom+SBATCH-1);
+    if(error||!sites||sites.length===0){sfetching=false;break;}
+    sites.forEach(s=>{
+      const cls=s.site_class||'';
+      const canonical=s.site_id||'';
+      ['site_id','new_site_code','old_site_code','bts_3g','lte_code','code_5g'].forEach(col=>{
+        if(s[col])hpsmSiteMap[String(s[col]).toUpperCase().trim()]={canonical,class:cls};
+      });
     });
-  });
+    if(sites.length<SBATCH)sfetching=false;
+    else sfrom+=SBATCH;
+  }
   // Build sorted keys for prefix matching (longest first so more specific matches win)
   hpsmSiteKeys=Object.keys(hpsmSiteMap).sort((a,b)=>b.length-a.length);
+  console.log(`HPSM site map built: ${hpsmSiteKeys.length} keys from sites table`);
 
   // Load HPSM status mapping overrides from lookup_values
   await loadLkp();
