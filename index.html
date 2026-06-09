@@ -477,6 +477,10 @@ async function rDash(){
     .dpanel-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
     .dpanel-body{overflow-y:auto;flex:1}
     .live-dot{width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;margin-right:4px}
+    .pulse-dot{width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block;margin-right:6px;animation:urgpulse 1.4s ease-in-out infinite}
+    @keyframes urgpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+    .urg-head-link{cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px}
+    .urg-head-link:hover .dpanel-title{text-decoration:underline}
     .dstat{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;cursor:pointer;transition:background .12s}
     .dstat:hover{background:var(--surf2)}
     .dstat-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
@@ -568,10 +572,14 @@ async function rDash(){
     <!-- Row 3: Urgent tickets -->
     <div class="dpanel">
       <div class="dpanel-head" style="background:#fef2f2;border-color:#fecaca">
-        <div class="dpanel-title" style="color:#991b1b">&#9888; Urgent tickets &mdash; Class A/B + AC/Power issues</div>
+        <div class="urg-head-link" onclick="goToUrgentTickets()">
+          <span class="pulse-dot"></span>
+          <div class="dpanel-title" style="color:#991b1b" title="Click to view all urgent tickets">Urgent tickets &mdash; Class A/B + AC/Power issues</div>
+          <i class="ti ti-arrow-right" style="font-size:12px;color:#991b1b;opacity:.6" aria-hidden="true"></i>
+        </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:#991b1b">${urgFiltered.length} open</span>
-          <button onclick="rDash()" class="btn bsm" style="font-size:10px;padding:2px 8px;border-color:#fecaca;color:#991b1b;background:#fef2f2">&#8635; Refresh</button>
+          <span style="font-size:11px;color:#991b1b;font-weight:500">${urgFiltered.length} open</span>
+          <button onclick="event.stopPropagation();rDash()" class="btn bsm" style="font-size:10px;padding:2px 8px;border-color:#fecaca;color:#991b1b;background:#fef2f2">&#8635; Refresh</button>
         </div>
       </div>
       <div class="dpanel-body" style="max-height:240px;overflow-y:auto">
@@ -2107,6 +2115,24 @@ async function ntSubmit(){
   rDash();
 }
 
+
+
+function goToUrgentTickets(){
+  // Filter All Tickets to show open tickets that are Class A/B
+  // (user can further refine — full urgent filtering requires client-side logic)
+  S.tf.q='';
+  S.tf.status='Open';
+  S.tf.region=S.dashFilter&&S.dashFilter.region?S.dashFilter.region:'';
+  S.tf.sclass='';
+  S.tf.repeat_min='';
+  S.tsort={col:'ticket_date',dir:'asc'};
+  S.tpage=1;
+  renderTab('tickets');
+  // After tab renders, show a notice
+  setTimeout(()=>{
+    toast('Showing open tickets — filter by Class A or B to see all urgent');
+  },300);
+}
 
 // TICKET DETAIL SIDE PANEL
 function expandTicket(t){
