@@ -249,6 +249,9 @@ let S={user:null,role:'guest',name:'Guest',tab:'dashboard',dashFilter:{region:''
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
   tf:{q:'',status:'',region:'',issue:'',sclass:'',repeat_min:'',priority:''},
+  rf:{q:'',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:''},
+  rsort:{col:'ticket_date',dir:'desc'},rpage:1,
+  tabPerms:{},
   lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
@@ -690,10 +693,6 @@ async function rDash(){
 // ── REPORTS ─────────────────────────────────────────────────────────────────
 async function rReports(){
   const mc=document.getElementById('mc');
-  if(!S.rf)S.rf={q:'',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:''};
-  if(!S.rsort)S.rsort={col:'ticket_date',dir:'desc'};
-  if(!S.rpage)S.rpage=1;
-
   const f=S.rf;const srt=S.rsort;
   const PP=50;
 
@@ -882,9 +881,8 @@ async function dlReports(){
   toast(`Downloaded ${allData.length} rows`);
 }
 
-
+async function rKPI(){
   const mc=document.getElementById('mc');
-  mc.innerHTML='<div class="loading">Building KPI report…</div>';
 
   // All counts done server-side — no row fetching for aggregates
   // Build 6-month date ranges
@@ -1491,6 +1489,8 @@ async function rStaff(){
   <div id="tab-perm-section"></div>`;
   renderTabPerms();
 }
+
+async function addUsr(){
   const id=document.getElementById('uu').value.trim();
   const name=document.getElementById('un').value.trim();
   const role=document.getElementById('ur').value;
