@@ -2158,11 +2158,14 @@ function lookupSite(rawId){
     if(s!==c)candidates.add(s);
   }
 
-  // 4. Strip numeric prefix: "1586-RAK3439-2" → "RAK3439", "4038-SHJ5423-1" → "SHJ5423"
-  // Pattern: digits-LETTERS followed by optional -suffix
+  // 4. Strip numeric prefix from ALL candidates so far
+  // e.g. "1586-RAK3439-2 dir..." → noSpace="1586-RAK3439-2" → numPrefix → "RAK3439"
+  // e.g. "4038-SHJ5423-1 - MW..." → noSpace="4038-SHJ5423-1" → numPrefix → "SHJ5423"
   const numPrefixRe=/^\d+[-_]([A-Z]{2,6}[0-9]{3,6}[A-Z0-9]*?)(?:[-_]\d+)?$/;
-  const numMatch=upper.match(numPrefixRe);
-  if(numMatch)candidates.add(numMatch[1]);
+  for(const c of [...candidates]){
+    const m=c.match(numPrefixRe);
+    if(m)candidates.add(m[1]);
+  }
 
   // Try all candidates — exact match wins
   for(const c of candidates){
