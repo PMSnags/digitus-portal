@@ -2008,15 +2008,18 @@ function extractSiteFromTitle(title){
   if(!title)return null;
   const s=String(title).trim();
 
-  // Pattern 1: starts with SITECODE : or SITECODE --  (most common)
+  // Pattern 1: starts with SITECODE : or SITECODE -- (most common)
   const m1=s.match(/^([A-Z]{2,6}[0-9]{2,6}[A-Z0-9]*)\s*[:\-]/i);
-  if(m1)return m1[1].trim().toUpperCase();
+  if(m1&&!/^\d/.test(m1[1]))return m1[1].trim().toUpperCase();
 
-  // Pattern 2: site code anywhere in title — look for known patterns like
-  // AUHL1234, SHJL2212, DXB0813, IADL5304 etc (2-5 letters + 3-6 digits + optional letters)
+  // Pattern 2: :: SITECODE- style (HPSM degradation tickets)
+  // e.g. "4G NE Degradation :: UL IBLER :: SHJL2251-Description :: Cell #"
+  const m2=s.match(/::[\s]*([A-Z]{2,6}[0-9]{3,6}[A-Z0-9]*)/i);
+  if(m2)return m2[1].trim().toUpperCase();
+
+  // Pattern 3: site code anywhere in title
   const candidates=s.match(/\b([A-Z]{2,5}[LNR]?[0-9]{3,6}[A-Z0-9]*)\b/gi);
-  if(candidates&&candidates.length){
-    // Return the first match that looks like a site code (not a TT number like IM9565809)
+  if(candidates){
     for(const c of candidates){
       if(!/^IM\d/i.test(c))return c.trim().toUpperCase();
     }
@@ -2077,11 +2080,12 @@ function mapHpsmRow(row,statusMap){
   const resolution=row['Resolution Action']||row['resolution_action']||'';
   const hpsmStatus=(row['Status']||row['status']||'').toLowerCase().trim();
 
-  // Site ID: Affected CI first (must look like a real site code, not just a number)
+  // Site ID: Affected CI first (must look like a real site code, not just a number or text)
   let siteRaw=affectedCI.trim();
   let siteSource='CI';
-  // Reject junk values — must be at least 4 chars and contain letters
-  if(!siteRaw||siteRaw.length<4||!/[A-Za-z]/.test(siteRaw)){
+  // Reject junk values: too short, no letters, or known placeholder text
+  const junkCI=/^(not available|n\/a|none|null|na|unknown|-)$/i;
+  if(!siteRaw||siteRaw.length<4||!/[A-Za-z]/.test(siteRaw)||junkCI.test(siteRaw.trim())){
     siteRaw='';
   }
   if(!siteRaw){
