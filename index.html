@@ -249,6 +249,9 @@ let S={user:null,role:'guest',name:'Guest',tab:'dashboard',dashFilter:{region:''
   tickets:[],tpage:1,ttotal:0,
   tsort:{col:'ticket_date',dir:'desc'},
   tf:{q:'',status:'',region:'',issue:'',sclass:'',repeat_min:'',priority:''},
+  rf:{q:'',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:'',_siteExact:'',_issueExact:''},
+  rsort:{col:'ticket_date',dir:'desc'},rpage:1,
+  tabPerms:{},
   lkp:{},staff:[]};
 
 const XRE=/(?<![A-Za-z])([A-Za-z]{2,6})-?(\d{4})(?!\d)/g;
@@ -306,30 +309,34 @@ async function showApp(){
   await loadLkp();await loadStaff();renderNav();renderTab('dashboard');
 }
 
-async function loadLkp(){const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');
-  S.lkp={};(data||[]).forEach(r=>{if(!S.lkp[r.category])S.lkp[r.category]=[];S.lkp[r.category].push(r.value);});}
+async function loadLkp(){
+  const{data}=await sb.from('lookup_values').select('*').eq('is_active',true).order('sort_order');
+  S.lkp={};S.tabPerms={};
+  (data||[]).forEach(r=>{
+    if(!S.lkp[r.category])S.lkp[r.category]=[];
+    S.lkp[r.category].push(r.value);
+    if(r.category==='tab_perm'){const p=r.value.split('|');if(p.length===2)S.tabPerms[p[0]]=p[1]==='1';}
+  });
+}
 async function loadStaff(){const{data}=await sb.from('staff').select('*').eq('is_active',true).order('name');S.staff=data||[];}
 
 // NAV
 function tabs_fn(){
   const t=[{id:'dashboard',l:'Dashboard'},{id:'tickets',l:'All Tickets'}];
-  if(S.role!=='guest'){
-    t.push({id:'cleaner',l:'Site ID Cleaner'});
-    t.push({id:'bulk',l:'Bulk Update'});
-    t.push({id:'profile',l:'My Account'});
-  }
-  if(S.role==='admin'){
-    t.push({id:'new_ticket',l:'New Ticket'});
-    t.push({id:'kpi',l:'KPI Report'});
-    t.push({id:'mstaff',l:'Manage Staff & Users'});
-    t.push({id:'mlkp',l:'Manage Dropdowns'});
-    t.push({id:'backup',l:'Backup Data'});
-  }
+  const allRoleTabs={
+    guest:[],
+    noc:[{id:'reports',l:'Reports'},{id:'hpsm_import',l:'HPSM Import'},{id:'kpi',l:'KPI Report'},{id:'cleaner',l:'Site ID Cleaner'},{id:'bulk',l:'Bulk Update'},{id:'profile',l:'My Account'}],
+    management:[{id:'reports',l:'Reports'},{id:'hpsm_import',l:'HPSM Import'},{id:'kpi',l:'KPI Report'},{id:'cleaner',l:'Site ID Cleaner'},{id:'bulk',l:'Bulk Update'},{id:'profile',l:'My Account'}],
+  };
+  const adminTabs=[{id:'reports',l:'Reports'},{id:'new_ticket',l:'New Ticket'},{id:'hpsm_import',l:'HPSM Import'},{id:'kpi',l:'KPI Report'},{id:'mstaff',l:'Manage Staff & Users'},{id:'mlkp',l:'Manage Dropdowns'},{id:'backup',l:'Backup Data'},{id:'profile',l:'My Account'}];
+  if(S.role==='admin'){adminTabs.forEach(tb=>t.push(tb));}
+  else{(allRoleTabs[S.role]||[]).forEach(tb=>{const perm=S.tabPerms?S.tabPerms[S.role+'_'+tb.id]:undefined;if(perm===false)return;t.push(tb);});}
   return t;
 }
 function renderNav(){
   const tabIcons={dashboard:'ti-radar-2',tickets:'ti-ticket',
     new_ticket:'ti-plus',cleaner:'ti-wand',bulk:'ti-list-check',
+    reports:'ti-chart-line',hpsm_import:'ti-file-upload',
     profile:'ti-user',kpi:'ti-chart-bar',mstaff:'ti-users',mlkp:'ti-adjustments',backup:'ti-database-export'};
   const tabs=tabs_fn();
   const mainTabs=['dashboard','tickets','kpi'];
@@ -355,7 +362,8 @@ function renderTab(t){
   if(t==='dashboard'){startAutoRefresh();}else{stopAutoRefresh();}
   if(t==='dashboard')rDash();else if(t==='tickets')rTix();else if(t==='kpi')rKPI();
   else if(t==='new_ticket')rNew();else if(t==='cleaner')rClean();
-  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();else if(t==='backup')rBackup();}
+  else if(t==='reports')rReports();
+  else if(t==='bulk')rBulk();else if(t==='profile')rProfile();else if(t==='mstaff')rStaff();else if(t==='mlkp')rLkp();else if(t==='backup')rBackup();else if(t==='hpsm_import')rHpsm();}
 
 // DASHBOARD
 async function rDash(){
@@ -399,7 +407,7 @@ async function rDash(){
     // Date range
     fq(sb.from('tickets').select('ticket_date').not('ticket_date','is',null).order('ticket_date',{ascending:true}).limit(1)),
     // Repeat counts via server-side RPC — single fast query
-    sb.rpc('get_site_repeat_counts'),
+    sb.rpc('get_site_issue_repeat_counts'),
     // Live feed — open tickets only
     fq(sb.from('tickets').select('id,tt_number,region,ticket_date,site_id_raw,site_id_canonical,tt_issue,status,site_class,bo_team,tech_name,remarks,resolution,closure_remarks,updated_by,site_type,battery_status,outage_start,tt_date_attended,priority').eq('status','Open').order('created_at',{ascending:false}).limit(15)),
     // Urgent — priority 1 or 2
@@ -451,7 +459,8 @@ async function rDash(){
   const canEdit=S.role==='noc'||S.role==='management'||S.role==='admin';
 
   const ticketRow=(t,showUrg)=>{
-    const repCnt=siteCounts[t.site_id_canonical]||1;
+    const repKey=(t.site_id_canonical&&t.tt_issue)?t.site_id_canonical+'||'+t.tt_issue:null;
+    const repCnt=repKey?(siteCounts[repKey]||1):1;
     const urg=showUrg&&isUrgent(t.tt_issue,t.site_class,t.priority)&&(t.status==='Open'||t.status==='Pending');
     const priNum=t.priority?parseInt(t.priority):null;
     const priBadge=priNum?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:3px;background:${priNum===1?'#7f1d1d':priNum===2?'#991b1b':priNum===3?'#92400e':'#374151'};color:#fff">P${priNum}</span>`:'';
@@ -463,7 +472,7 @@ async function rDash(){
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
       <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${priBadge}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}" title="${repCnt>1?'Click to see all tickets for this site':''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" data-site="${t.site_id_canonical||''}" data-issue="${(t.tt_issue||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();${repCnt>1?`goToRepeat(this)`:''}""+" title="${repCnt>1?'Click to see repeated tickets for this site+issue':''}">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
       <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
     </tr>`;
@@ -644,6 +653,231 @@ async function rDash(){
   </div>`;
 }
 
+
+// ── REPORTS ──────────────────────────────────────────────────────────────────
+function goToRepeat(el){
+  const site=el.dataset.site||'';
+  const issue=el.dataset.issue||'';
+  S.rf={q:site,status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:'',_siteExact:site,_issueExact:issue};
+  S.rsort={col:'ticket_date',dir:'desc'};S.rpage=1;
+  renderTab('reports');
+}
+
+async function rReports(){
+  const mc=document.getElementById('mc');
+  const f=S.rf;const srt=S.rsort;
+
+  const{data:repData}=await sb.rpc('get_site_issue_repeat_counts');
+  const repMap={};
+  (repData||[]).forEach(r=>{if(r.site_id_canonical&&r.tt_issue)repMap[r.site_id_canonical+'||'+r.tt_issue]=parseInt(r.ticket_count)||1;});
+
+  let repeatKeys=null,repeatSites=null;
+  if(f.repeat_min){
+    const minCnt=parseInt(f.repeat_min);
+    const qualifying=(repData||[]).filter(r=>parseInt(r.ticket_count)>=minCnt);
+    repeatKeys=new Set(qualifying.map(r=>r.site_id_canonical+'||'+r.tt_issue));
+    repeatSites=[...new Set(qualifying.map(r=>r.site_id_canonical))];
+  }
+
+  let q=sb.from('tickets').select('*',{count:'exact'});
+  if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
+  if(f.status)q=q.eq('status',f.status);
+  if(f.region)q=q.eq('region',f.region);
+  if(f.sclass)q=q.eq('site_class',f.sclass);
+  if(f.priority==='urgent')q=q.in('priority',[1,2]);
+  else if(f.priority)q=q.eq('priority',parseInt(f.priority));
+  if(f.date_from)q=q.gte('ticket_date',f.date_from);
+  if(f.date_to)q=q.lte('ticket_date',f.date_to);
+  if(f._siteExact)q=q.eq('site_id_canonical',f._siteExact);
+  if(f._issueExact)q=q.eq('tt_issue',f._issueExact);
+  else if(repeatSites&&repeatSites.length)q=q.in('site_id_canonical',repeatSites);
+
+  const fr=(S.rpage-1)*PP,to=fr+PP-1;
+  const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
+
+  let rows=(data||[]);
+  if(repeatKeys&&!f._issueExact){
+    rows=rows.filter(r=>{const k=(r.site_id_canonical&&r.tt_issue)?r.site_id_canonical+'||'+r.tt_issue:null;return k&&repeatKeys.has(k);});
+  }
+
+  const cols=[
+    {id:'tt_number',l:'TT Number',w:'105px'},{id:'region',l:'Region',w:'55px'},
+    {id:'ticket_date',l:'Date',w:'85px'},{id:'priority',l:'Prio',w:'50px'},
+    {id:'site_id_canonical',l:'Corrected ID',w:'90px'},{id:'tt_issue',l:'Issue',w:'180px'},
+    {id:'bo_team',l:'BO Team',w:'100px'},{id:'site_class',l:'Class',w:'65px'},
+    {id:'status',l:'Status',w:'90px'},{id:'repeat_count',l:'Repeats',w:'60px'},
+    {id:'tt_date_attended',l:'Attended',w:'80px'},
+  ];
+
+  mc.innerHTML=`
+  <div class="tb">
+    <input type="text" placeholder="Search TT#, site, issue, BO team…" value="${f.q}" oninput="S.rf.q=this.value;S.rpage=1;rReports()">
+    <select onchange="S.rf.status=this.value;S.rpage=1;rReports()">
+      <option value="">All statuses</option>
+      ${(S.lkp.status||['Open','Attended','Pending','Closed']).map(s=>`<option${f.status===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+    <select onchange="S.rf.region=this.value;S.rpage=1;rReports()">
+      <option value="">All regions</option>
+      ${['DXB','NE','AUH','AAN','WR'].map(r=>`<option${f.region===r?' selected':''}>${r}</option>`).join('')}
+    </select>
+    <select onchange="S.rf.sclass=this.value;S.rpage=1;rReports()">
+      <option value="">All classes</option>
+      <option value="Class A"${f.sclass==='Class A'?' selected':''}>Class A</option>
+      <option value="Class B"${f.sclass==='Class B'?' selected':''}>Class B</option>
+      <option value="Class C"${f.sclass==='Class C'?' selected':''}>Class C</option>
+    </select>
+    <select onchange="S.rf.priority=this.value;S.rpage=1;rReports()" style="min-width:120px">
+      <option value="">All priorities</option>
+      <option value="urgent"${f.priority==='urgent'?' selected':''}>🔴 P1 &amp; P2 (Urgent)</option>
+      <option value="1"${f.priority==='1'?' selected':''}>P1 — Critical</option>
+      <option value="2"${f.priority==='2'?' selected':''}>P2 — High</option>
+      <option value="3"${f.priority==='3'?' selected':''}>P3 — Medium</option>
+      <option value="4"${f.priority==='4'?' selected':''}>P4 — Low</option>
+    </select>
+    <select onchange="S.rf.repeat_min=this.value;S.rf._siteExact='';S.rf._issueExact='';S.rpage=1;rReports()" style="min-width:140px">
+      <option value="">Any repeat count</option>
+      <option value="2"${f.repeat_min==='2'?' selected':''}>Repeated (2+)</option>
+      <option value="3"${f.repeat_min==='3'?' selected':''}>3+ same issue</option>
+      <option value="5"${f.repeat_min==='5'?' selected':''}>5+ same issue</option>
+      <option value="10"${f.repeat_min==='10'?' selected':''}>10+ same issue</option>
+      <option value="20"${f.repeat_min==='20'?' selected':''}>20+ same issue</option>
+    </select>
+    <input type="date" value="${f.date_from}" title="Date from" style="font-size:12px;padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:5px;color:var(--text1)" onchange="S.rf.date_from=this.value;S.rpage=1;rReports()">
+    <input type="date" value="${f.date_to}" title="Date to" style="font-size:12px;padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:5px;color:var(--text1)" onchange="S.rf.date_to=this.value;S.rpage=1;rReports()">
+    <button class="btn" onclick="S.rf={q:'',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:'',_siteExact:'',_issueExact:''};S.rsort={col:'ticket_date',dir:'desc'};S.rpage=1;rReports()">Clear</button>
+    <button class="btn" onclick="dlReports()">&#8595; Download CSV</button>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:6px;padding:0 2px;display:flex;align-items:center;gap:10px">
+    ${count!=null?`<span>${count.toLocaleString()} tickets</span>`:''}
+    ${f._issueExact?`<span style="background:var(--surf2);border:1px solid var(--border);padding:2px 8px;border-radius:4px;color:var(--text2)"><strong>${f._siteExact}</strong> — ${f._issueExact} <span onclick="S.rf._siteExact='';S.rf._issueExact='';S.rf.q='';S.rpage=1;rReports()" style="margin-left:6px;cursor:pointer;color:var(--pri)">✕</span></span>`:''}
+  </div>
+  <div class="card"><div class="tw" style="overflow-x:auto"><table style="table-layout:auto;min-width:960px"><thead><tr>
+    ${cols.map(c=>{const isSorted=srt.col===c.id;return`<th style="width:${c.w}" ${c.id!=='repeat_count'?`onclick="S.rsort={col:'${c.id}',dir:'${isSorted&&srt.dir==='desc'?'asc':'desc'}'};S.rpage=1;rReports()" class="${isSorted?'sort-'+srt.dir:''}"`:''} >${c.l}</th>`;}).join('')}
+  </tr></thead><tbody>
+    ${!rows.length?`<tr><td colspan="${cols.length}" class="empty">No tickets found</td></tr>`:
+      rows.map(t=>{
+        const pn=t.priority?parseInt(t.priority):null;
+        const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span>`:'—';
+        const repKey=(t.site_id_canonical&&t.tt_issue)?t.site_id_canonical+'||'+t.tt_issue:null;
+        const repCnt=repKey?(repMap[repKey]||1):1;
+        const repBadge=repCnt>1?`<span style="font-size:10px;font-weight:600;color:var(--amber)">${repCnt}×</span>`:'<span style="color:var(--text3)">—</span>';
+        return`<tr onclick="expandTicket(JSON.parse(this.dataset.t))" data-t="${JSON.stringify(t).replace(/"/g,'&quot;')}" style="cursor:pointer">
+          <td style="font-family:monospace;font-size:11px;color:var(--text2)">${t.tt_number||'—'}</td>
+          <td><span class="badge bp" style="font-size:10px">${t.region||'—'}</span></td>
+          <td style="font-size:11px;color:var(--text2)">${t.ticket_date||'—'}</td>
+          <td style="text-align:center">${pb}</td>
+          <td style="font-weight:500;font-size:12px">${t.site_id_canonical||'—'}</td>
+          <td style="font-size:11px" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
+          <td style="font-size:11px;color:var(--text2)">${t.bo_team||'—'}</td>
+          <td>${cbadge(t.site_class)}</td>
+          <td>${sbadge(t.status)}</td>
+          <td style="text-align:center">${repBadge}</td>
+          <td style="font-size:11px;color:var(--text2)">${t.tt_date_attended||'—'}</td>
+        </tr>`;
+      }).join('')}
+  </tbody></table></div>
+  ${pgn(count||0,S.rpage,'S.rpage','rReports')}
+  </div>`;
+}
+
+async function dlReports(){
+  const f=S.rf||{};
+  toast('Preparing report download…');
+  const{data:repData}=await sb.rpc('get_site_issue_repeat_counts');
+  const repMap={};
+  (repData||[]).forEach(r=>{if(r.site_id_canonical&&r.tt_issue)repMap[r.site_id_canonical+'||'+r.tt_issue]=parseInt(r.ticket_count)||1;});
+  let repeatKeys=null,repeatSites=null;
+  if(f.repeat_min){
+    const minCnt=parseInt(f.repeat_min);
+    const qualifying=(repData||[]).filter(r=>parseInt(r.ticket_count)>=minCnt);
+    repeatKeys=new Set(qualifying.map(r=>r.site_id_canonical+'||'+r.tt_issue));
+    repeatSites=[...new Set(qualifying.map(r=>r.site_id_canonical))];
+  }
+  let q=sb.from('tickets').select('*');
+  if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
+  if(f.status)q=q.eq('status',f.status);if(f.region)q=q.eq('region',f.region);if(f.sclass)q=q.eq('site_class',f.sclass);
+  if(f.priority==='urgent')q=q.in('priority',[1,2]);else if(f.priority)q=q.eq('priority',parseInt(f.priority));
+  if(f.date_from)q=q.gte('ticket_date',f.date_from);if(f.date_to)q=q.lte('ticket_date',f.date_to);
+  if(f._siteExact)q=q.eq('site_id_canonical',f._siteExact);
+  if(f._issueExact)q=q.eq('tt_issue',f._issueExact);
+  else if(repeatSites&&repeatSites.length)q=q.in('site_id_canonical',repeatSites);
+  const BATCH=1000;let allData=[];let from=0;let fetching=true;
+  while(fetching){
+    const{data,error}=await q.order('ticket_date',{ascending:false}).range(from,from+BATCH-1);
+    if(error){toast('Error: '+error.message,1);return;}
+    allData=allData.concat(data||[]);
+    if(!data||data.length<BATCH)fetching=false;else from+=BATCH;
+  }
+  if(repeatKeys&&!f._issueExact)allData=allData.filter(r=>{const k=(r.site_id_canonical&&r.tt_issue)?r.site_id_canonical+'||'+r.tt_issue:null;return k&&repeatKeys.has(k);});
+  function fmtDate(v){if(!v)return'';const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:v;}
+  function csvEsc(v){if(v==null)return'';var s=String(v);if(s.includes(',')||s.includes('"')||s.includes('\n'))return'"'+s.replace(/"/g,'""')+'"';return s;}
+  const cols=['tt_number','region','ticket_date','priority','site_id_raw','site_id_canonical','site_class','tt_issue','bo_team','tech_name','tt_date_attended','status','remarks','resolution','opened_by','updated_by'];
+  const dateCols={ticket_date:1,tt_date_attended:1};
+  const header=[...cols,'repeat_count'].join(',');
+  const rows=allData.map(r=>{const repKey=(r.site_id_canonical&&r.tt_issue)?r.site_id_canonical+'||'+r.tt_issue:null;const repCnt=repKey?(repMap[repKey]||1):1;return[...cols.map(c=>csvEsc(dateCols[c]?fmtDate(r[c]):r[c])),repCnt].join(',');});
+  const stamp=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const blob=new Blob([[header,...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Digitus_Report_${stamp}.csv`;a.click();
+  toast(`Downloaded ${allData.length} rows`);
+}
+
+// ── TAB PERMISSIONS ───────────────────────────────────────────────────────────
+const TAB_PERM_DEFS={
+  noc:[{id:'reports',l:'Reports'},{id:'hpsm_import',l:'HPSM Import'},{id:'kpi',l:'KPI Report'},{id:'cleaner',l:'Site ID Cleaner'},{id:'bulk',l:'Bulk Update'},{id:'profile',l:'My Account'}],
+  management:[{id:'reports',l:'Reports'},{id:'hpsm_import',l:'HPSM Import'},{id:'kpi',l:'KPI Report'},{id:'cleaner',l:'Site ID Cleaner'},{id:'bulk',l:'Bulk Update'},{id:'profile',l:'My Account'}],
+  guest:[],
+};
+
+function renderTabPerms(){
+  const el=document.getElementById('tab-perm-section');if(!el)return;
+  const roles=['noc','management','guest'];
+  const roleLabels={noc:'NOC',management:'Management',guest:'Guest'};
+  const allTabs=[];const seen=new Set();
+  roles.forEach(r=>(TAB_PERM_DEFS[r]||[]).forEach(tb=>{if(!seen.has(tb.id)){seen.add(tb.id);allTabs.push(tb);}}));
+  let html=`<div class="card" style="margin-top:16px">
+    <div class="ch"><div class="ct"><i class="ti ti-layout-navbar" style="margin-right:6px"></i>Tab Visibility by Role</div>
+      <span style="font-size:11px;color:var(--text3)">Admin tabs and Dashboard/All Tickets are always visible and cannot be hidden</span>
+    </div>
+    <div class="cb"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="text-align:left;padding:7px 10px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">Tab</th>
+        ${roles.map(r=>`<th style="text-align:center;padding:7px 14px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border)">${roleLabels[r]}</th>`).join('')}
+      </tr></thead><tbody>`;
+  allTabs.forEach(tb=>{
+    html+=`<tr><td style="padding:7px 10px;border-bottom:0.5px solid var(--border);font-weight:500">${tb.l}</td>`;
+    roles.forEach(r=>{
+      const hasTab=(TAB_PERM_DEFS[r]||[]).some(t=>t.id===tb.id);
+      if(!hasTab){html+=`<td style="text-align:center;padding:7px 14px;border-bottom:0.5px solid var(--border);color:var(--text3)">—</td>`;}
+      else{
+        const key=r+'_'+tb.id;
+        const isOn=S.tabPerms[key]!==false;
+        html+=`<td style="text-align:center;padding:7px 14px;border-bottom:0.5px solid var(--border)">
+          <label style="display:inline-flex;align-items:center;cursor:pointer;gap:6px">
+            <div onclick="toggleTabPerm('${key}',this)" style="width:36px;height:20px;border-radius:10px;background:${isOn?'var(--pri)':'var(--border)'};position:relative;cursor:pointer;transition:background .2s">
+              <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;${isOn?'right:2px':'left:2px'};transition:all .2s"></div>
+            </div>
+            <span style="font-size:11px;color:${isOn?'var(--green)':'var(--text3)'}">${isOn?'Show':'Hide'}</span>
+          </label></td>`;
+      }
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+
+async function toggleTabPerm(key,toggleEl){
+  const isOn=S.tabPerms[key]!==false;
+  const newVal=!isOn;
+  S.tabPerms[key]=newVal;
+  const valStr=key+'|'+(newVal?'1':'0');
+  const{data:existing}=await sb.from('lookup_values').select('id').eq('category','tab_perm').like('value',key+'|%');
+  if(existing&&existing.length){await sb.from('lookup_values').update({value:valStr}).eq('id',existing[0].id);}
+  else{await sb.from('lookup_values').insert([{category:'tab_perm',value:valStr,is_active:true}]);}
+  toast('Tab visibility updated');
+  renderTabPerms();
+  renderNav();
+}
 
 async function rKPI(){
   const mc=document.getElementById('mc');
@@ -1164,7 +1398,7 @@ async function rStaff(){
   else if(usRes&&usRes.error){console.warn('users rpc error:',usRes.error);}
   const mc=document.getElementById('mc');
   mc.innerHTML=`
-  <div style="max-width:760px">
+  <div style="max-width:960px">
 
     <!-- Add Portal User -->
     <div class="card" style="margin-bottom:12px">
@@ -1250,7 +1484,9 @@ async function rStaff(){
         </tr>`).join('')}
       </tbody></table></div>
     </div>
-  </div>`;
+  </div>
+  <div id="tab-perm-section"></div>`;
+  renderTabPerms();
 }
 
 async function addUsr(){
@@ -1925,7 +2161,8 @@ async function refreshLiveFeed(){
     return;
   }
   liveBody.innerHTML=rec.map(t=>{
-    const repCnt=siteCounts[t.site_id_canonical]||1;
+    const repKey=(t.site_id_canonical&&t.tt_issue)?t.site_id_canonical+'||'+t.tt_issue:null;
+    const repCnt=repKey?(S._siteCounts&&S._siteCounts[repKey]?S._siteCounts[repKey]:1):1;
     const pn=t.priority?parseInt(t.priority):null;
     const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span> `:'';
     return`<tr onclick="expandTicket(${JSON.stringify(t).replace(/"/g,'&quot;')})"
@@ -1936,7 +2173,7 @@ async function refreshLiveFeed(){
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
       <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${pb}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" data-site="${t.site_id_canonical||''}" data-issue="${(t.tt_issue||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();${repCnt>1?`goToRepeat(this)`:''}""+">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
       <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
     </tr>`;
@@ -1977,6 +2214,254 @@ document.addEventListener('visibilitychange', ()=>{
 
 
 // BACKUP DATA
+// ── HPSM IMPORT ──────────────────────────────────────────────────────────────
+const HPSM_STATUS_DEFAULT={'open':'Open','accepted':'Open','reassigned':'Open','in progress':'Attended','pending input':'Pending','resolved':'Closed','closed':'Closed'};
+function getHpsmStatusMap(){const overrides={};(S.lkp.hpsm_status_map||[]).forEach(v=>{const p=v.split('|');if(p.length===2)overrides[p[0].toLowerCase().trim()]=p[1].trim();});return Object.assign({},HPSM_STATUS_DEFAULT,overrides);}
+function parseHpsmDate(v){if(!v||String(v).trim()==='')return null;const s=String(v).trim();const patterns=[{r:/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/,fn:m=>`${m[3]}-${m[2]}-${m[1]}`},{r:/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2}:\d{2})/,fn:m=>`20${m[3]}-${m[1]}-${m[2]}`},{r:/^(\d{2})\/(\d{2})\/(\d{4})$/,fn:m=>`${m[3]}-${m[2]}-${m[1]}`},{r:/^(\d{4})-(\d{2})-(\d{2})/,fn:m=>`${m[1]}-${m[2]}-${m[3]}`}];for(const p of patterns){const m=s.match(p.r);if(m)return p.fn(m);}return null;}
+
+function extractSiteFromTitle(title){
+  if(!title)return null;const s=String(title).trim();
+  const m1=s.match(/^([A-Z]{2,6}[0-9]{2,6}[A-Z0-9]*)\s*[:\-]/i);
+  if(m1&&!/^\d/.test(m1[1]))return m1[1].trim().toUpperCase();
+  const m2=s.match(/::[\s]*([A-Z]{2,6}[0-9]{3,6}[A-Z0-9]*)/i);
+  if(m2)return m2[1].trim().toUpperCase();
+  const candidates=s.match(/\b([A-Z]{2,5}[LNR]?[0-9]{3,6}[A-Z0-9]*)\b/gi);
+  if(candidates){for(const c of candidates){if(!/^IM\d/i.test(c))return c.trim().toUpperCase();}}
+  return null;
+}
+
+function inferRegion(ag,si){
+  if(!ag&&!si)return'';const a=(ag||'').toUpperCase(),s=(si||'').toUpperCase();
+  if(a.includes('- AUH')||a.includes('AUH AAN')||s.startsWith('AUH')||s.startsWith('IAD')||s.startsWith('IADL')||s.startsWith('AUHL')||s.startsWith('AUGL'))return'AUH';
+  if(a.includes('- DXB')||a.includes('FLM DXB')||s.startsWith('DXB')||s.startsWith('DUBL'))return'DXB';
+  if(a.includes('- NE')||a.includes('FLM NE')||s.startsWith('SHJ')||s.startsWith('SHJL')||s.startsWith('AJM')||s.startsWith('UAQ')||s.startsWith('RAK')||s.startsWith('FUJ'))return'NE';
+  if(a.includes('AAN')||s.startsWith('AAN'))return'AAN';if(a.includes('WR')||s.startsWith('WR'))return'WR';return'';
+}
+
+function parseHpsmCsv(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return[];
+  function parseLine(line){const res=[];let cur='';let inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){res.push(cur.trim());cur='';}else cur+=ch;}res.push(cur.trim());return res;}
+  const headers=parseLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+  const rows=[];
+  for(let i=1;i<lines.length;i++){const vals=parseLine(lines[i]);if(vals.length<2)continue;const row={};headers.forEach((h,j)=>row[h]=vals[j]?vals[j].replace(/^"|"$/g,'').trim():'');rows.push(row);}
+  return rows;
+}
+
+let hpsmSiteMap={};let hpsmSiteKeys=[];let hpsmRows=[];
+
+function lookupSite(rawId){
+  if(!rawId)return null;const upper=rawId.toUpperCase().trim();
+  if(hpsmSiteMap[upper])return hpsmSiteMap[upper];
+  const noUnderscore=upper.replace(/_.*$/,'').trim();
+  const noSpace=upper.replace(/\s.*$/,'').trim();
+  const noDash=upper.replace(/-.*$/,'').trim();
+  const techRe=/^([A-Z]{2,5})(NR|4G|3G|2G|LTE|5G|L4G|NB)([0-9]{3,6}[A-Z0-9]*)$/;
+  const numPrefixRe=/^\d+[-_]([A-Z]{2,6}[0-9]{3,6}[A-Z0-9]*?)(?:[-_]\d+)?$/;
+  const candidates=new Set([upper,noUnderscore,noSpace,noDash]);
+  for(const c of [...candidates]){const s=c.replace(techRe,'$1$3');if(s!==c)candidates.add(s);}
+  for(const c of [...candidates]){const m=c.match(numPrefixRe);if(m)candidates.add(m[1]);}
+  for(const c of candidates){if(c&&hpsmSiteMap[c])return hpsmSiteMap[c];}
+  for(const k of hpsmSiteKeys){if(k.length>=5&&k.length<=upper.length&&upper.startsWith(k))return hpsmSiteMap[k];}
+  return null;
+}
+
+function mapHpsmRow(row,statusMap){
+  const ttNum=row['Incident ID']||'';const title=row['Title']||'';
+  const affectedCI=row['Affected CI']||'';const priority=row['Priority']||'';
+  const duAlarm=row['Du Alarm Date']||'';const openTime=row['Open Time']||'';
+  const assignee=row['Assignee']||'';const assignGroup=row['Assignment Group']||'';
+  const resolution=row['Resolution Action']||'';
+  const hpsmStatus=(row['Status']||'').toLowerCase().trim();
+  const junkCI=/^(not available|n\/a|none|null|na|unknown|-)$/i;
+  let siteRaw=affectedCI.trim();let siteSource='CI';
+  if(!siteRaw||siteRaw.length<4||!/[A-Za-z]/.test(siteRaw)||junkCI.test(siteRaw)){siteRaw='';}
+  if(!siteRaw){siteRaw=extractSiteFromTitle(title)||'';siteSource=siteRaw?'Title':'';}
+  const siteEntry=lookupSite(siteRaw);
+  const siteCanonical=siteEntry?siteEntry.canonical:siteRaw;
+  const siteClass=siteEntry?siteEntry.class:'';
+  const priMap={'1':1,'1 - critical':1,'2':2,'2 - high':2,'3':3,'3 - medium':3,'4':4,'4 - low':4};
+  const priNum=priMap[priority.toLowerCase().trim()]||null;
+  const portalStatus=statusMap[hpsmStatus]||'Open';
+  const region=inferRegion(assignGroup,siteRaw);
+  return{tt_number:ttNum,tt_issue:title,site_id_raw:siteRaw,site_id_canonical:siteCanonical,site_class:siteClass,priority:priNum,ticket_date:parseHpsmDate(duAlarm),outage_start:parseHpsmDate(openTime),tech_name:assignee,bo_team:assignGroup,resolution:resolution||null,status:portalStatus,region,vops:'NO',opened_by:S.name,updated_by:S.name,_siteSource:siteSource,_hpsmStatus:row['Status']||'',_unresolved:!siteEntry&&!!siteRaw};
+}
+
+async function rHpsm(){
+  const mc=document.getElementById('mc');
+  mc.innerHTML='<div class="loading">Loading site data…</div>';
+  hpsmSiteMap={};
+  const SBATCH=1000;let sfrom=0,sfetching=true;
+  while(sfetching){
+    const{data:sites,error}=await sb.from('sites').select('site_id,new_site_code,old_site_code,bts_3g,lte_code,code_5g,site_class').range(sfrom,sfrom+SBATCH-1);
+    if(error||!sites||sites.length===0){sfetching=false;break;}
+    sites.forEach(s=>{const cls=s.site_class||'';const canonical=s.site_id||'';['site_id','new_site_code','old_site_code','bts_3g','lte_code','code_5g'].forEach(col=>{if(s[col])hpsmSiteMap[String(s[col]).toUpperCase().trim()]={canonical,class:cls};});});
+    if(sites.length<SBATCH)sfetching=false;else sfrom+=SBATCH;
+  }
+  hpsmSiteKeys=Object.keys(hpsmSiteMap).sort((a,b)=>b.length-a.length);
+  await loadLkp();
+  mc.innerHTML=`
+  <div style="max-width:960px">
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><div class="ct"><i class="ti ti-file-upload" style="margin-right:6px"></i>HPSM Import</div>
+        <span style="font-size:11px;color:var(--text3)">Upload a CSV exported from HPSM to import tickets</span>
+      </div>
+      <div class="cb">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surf2);border:1px dashed var(--border);padding:10px 18px;border-radius:6px;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--border)'">
+            <i class="ti ti-upload" style="font-size:16px;color:var(--pri)"></i> Choose CSV file
+            <input type="file" accept=".csv" style="display:none" onchange="hpsmLoadFile(this)">
+          </label>
+          <div style="font-size:12px;color:var(--text3)">Expected: <strong>Incident ID, Title, Status, Affected CI, Priority, Du Alarm Date, Open Time, Assignee, Assignment Group, Resolution Action</strong></div>
+        </div>
+      </div>
+    </div>
+    <div id="hpsm-preview"></div>
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><div class="ct"><i class="ti ti-adjustments" style="margin-right:6px"></i>HPSM Status Mapping</div></div>
+      <div class="cb"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 10px;color:var(--text3);border-bottom:1px solid var(--border)">HPSM Status</th>
+          <th style="text-align:left;padding:6px 10px;color:var(--text3);border-bottom:1px solid var(--border)">→ Portal Status</th>
+          <th style="text-align:left;padding:6px 10px;color:var(--text3);border-bottom:1px solid var(--border)">Override</th>
+        </tr></thead><tbody>
+        ${Object.entries(HPSM_STATUS_DEFAULT).map(([h,p])=>{
+          const override=(S.lkp.hpsm_status_map||[]).find(v=>v.toLowerCase().startsWith(h+'|'));
+          const effective=override?override.split('|')[1]:p;
+          return`<tr>
+            <td style="padding:6px 10px;border-bottom:0.5px solid var(--border);font-family:monospace;color:var(--text2)">${h}</td>
+            <td style="padding:6px 10px;border-bottom:0.5px solid var(--border)">${sbadge(effective)}</td>
+            <td style="padding:6px 10px;border-bottom:0.5px solid var(--border)">
+              <select style="font-size:11px;padding:2px 6px;background:var(--surf2);border:1px solid var(--border);border-radius:4px;color:var(--text1)" onchange="hpsmSetMap('${h}',this.value)">
+                ${['Open','Attended','Pending','Closed'].map(s=>`<option${effective===s?' selected':''}>${s}</option>`).join('')}
+              </select></td>
+          </tr>`;
+        }).join('')}
+        </tbody></table></div>
+    </div>
+  </div>`;
+}
+
+async function hpsmSetMap(hpsmStatus,portalStatus){
+  const existing=(S.lkp.hpsm_status_map||[]);
+  const oldEntry=existing.find(v=>v.toLowerCase().startsWith(hpsmStatus+'|'));
+  if(oldEntry){const{data}=await sb.from('lookup_values').select('id').eq('category','hpsm_status_map').eq('value',oldEntry);if(data&&data[0])await sb.from('lookup_values').delete().eq('id',data[0].id);}
+  if(HPSM_STATUS_DEFAULT[hpsmStatus]!==portalStatus){await sb.from('lookup_values').insert([{category:'hpsm_status_map',value:`${hpsmStatus}|${portalStatus}`,is_active:true}]);}
+  await loadLkp();toast('Status mapping updated');
+}
+
+function hpsmLoadFile(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const raw=parseHpsmCsv(e.target.result);
+    if(!raw.length){toast('No data found in CSV',1);return;}
+    const statusMap=getHpsmStatusMap();
+    hpsmRows=raw.map(r=>mapHpsmRow(r,statusMap));
+    hpsmRenderPreview();
+  };
+  reader.readAsText(file);
+}
+
+function hpsmRenderPreview(){
+  const total=hpsmRows.length;
+  const unresolved=hpsmRows.filter(r=>r._unresolved).length;
+  const noRegion=hpsmRows.filter(r=>!r.region).length;
+  document.getElementById('hpsm-preview').innerHTML=`
+  <div class="card">
+    <div class="ch" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="ct">Preview — ${total.toLocaleString()} rows</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+          ${unresolved>0?`<span style="color:var(--amber)">⚠ ${unresolved} unresolved site IDs</span>&nbsp;&nbsp;`:''}
+          ${noRegion>0?`<span style="color:var(--text3)">${noRegion} rows missing region</span>&nbsp;&nbsp;`:''}
+          <span style="color:var(--green)">✓ ${total-unresolved} sites matched</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="hpsm-only-issues" onchange="hpsmRenderPreview()"> Show unresolved only
+        </label>
+        <button class="btn bpri" onclick="hpsmDoImport()"><i class="ti ti-database-import"></i> Import ${total.toLocaleString()} tickets</button>
+      </div>
+    </div>
+    <div class="tw" style="overflow-x:auto;max-height:480px;overflow-y:auto">
+    <table style="table-layout:auto;min-width:1100px;font-size:11px">
+      <thead style="position:sticky;top:0;background:var(--surf1);z-index:2"><tr>
+        <th style="width:100px;cursor:default">TT Number</th><th style="width:220px;cursor:default">Issue / Title</th>
+        <th style="width:110px;cursor:default">Site ID Raw</th><th style="width:110px;cursor:default">Corrected Site ID</th>
+        <th style="width:60px;cursor:default">Class</th><th style="width:55px;cursor:default">Region</th>
+        <th style="width:45px;cursor:default">Prio</th><th style="width:80px;cursor:default">HPSM Status</th>
+        <th style="width:85px;cursor:default">Portal Status</th><th style="width:85px;cursor:default">Date</th>
+        <th style="width:55px;cursor:default">Source</th>
+      </tr></thead>
+      <tbody>
+        ${(()=>{
+          const onlyIssues=document.getElementById('hpsm-only-issues')?.checked;
+          const visible=onlyIssues?hpsmRows.filter(r=>r._unresolved):hpsmRows;
+          if(!visible.length)return`<tr><td colspan="11" class="empty">No rows to show</td></tr>`;
+          return visible.map((r,i)=>{
+            const rowBg=r._unresolved?'background:rgba(245,158,11,0.06)':'';
+            const pn=r.priority;
+            const pb=pn?`<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:${pn===1?'#7f1d1d':pn===2?'#991b1b':pn===3?'#92400e':'#374151'};color:#fff">P${pn}</span>`:'—';
+            return`<tr style="${rowBg}">
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);font-family:monospace;color:var(--text2)">${r.tt_number||'—'}</td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;border-bottom:0.5px solid var(--border)" title="${r.tt_issue||''}">${r.tt_issue||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <input type="text" value="${r.site_id_raw||''}" style="width:100%;font-size:11px;padding:2px 4px;background:${r._unresolved?'rgba(245,158,11,0.1)':'var(--surf2)'};border:1px solid ${r._unresolved?'var(--amber)':'var(--border)'};border-radius:3px;color:var(--text1)" onchange="hpsmRows[${i}].site_id_raw=this.value;hpsmResolveRow(${i})">
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <input type="text" value="${r.site_id_canonical||''}" style="width:100%;font-size:11px;padding:2px 4px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)" onchange="hpsmRows[${i}].site_id_canonical=this.value">
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">${cbadge(r.site_class)}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <select style="font-size:10px;padding:1px 3px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)" onchange="hpsmRows[${i}].region=this.value">
+                  ${['','DXB','NE','AUH','AAN','WR'].map(rv=>`<option${r.region===rv?' selected':''}>${rv}</option>`).join('')}
+                </select>
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);text-align:center">${pb}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);color:var(--text3)">${r._hpsmStatus||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border)">
+                <select style="font-size:10px;padding:1px 3px;background:var(--surf2);border:1px solid var(--border);border-radius:3px;color:var(--text1)" onchange="hpsmRows[${i}].status=this.value">
+                  ${['Open','Attended','Pending','Closed'].map(sv=>`<option${r.status===sv?' selected':''}>${sv}</option>`).join('')}
+                </select>
+              </td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);color:var(--text2)">${r.ticket_date||'—'}</td>
+              <td style="padding:6px 8px;border-bottom:0.5px solid var(--border);text-align:center">
+                ${r._siteSource==='CI'?'<span style="color:var(--green);font-size:10px">CI</span>':r._siteSource==='Title'?'<span style="color:var(--amber);font-size:10px">Title</span>':'<span style="color:var(--pri);font-size:10px">None</span>'}
+              </td>
+            </tr>`;
+          }).join('');
+        })()}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function hpsmResolveRow(i){
+  const r=hpsmRows[i];const entry=lookupSite(r.site_id_raw);
+  if(entry){hpsmRows[i].site_id_canonical=entry.canonical;hpsmRows[i].site_class=entry.class;hpsmRows[i]._unresolved=false;}
+  else{hpsmRows[i].site_id_canonical=r.site_id_raw;hpsmRows[i]._unresolved=true;}
+  if(!hpsmRows[i].region)hpsmRows[i].region=inferRegion(r.bo_team,r.site_id_raw);
+  hpsmRenderPreview();
+}
+
+async function hpsmDoImport(){
+  if(!hpsmRows.length){toast('No rows to import',1);return;}
+  const btn=event.target;btn.disabled=true;btn.textContent='Importing…';
+  const payload=hpsmRows.map(r=>{const{_siteSource,_hpsmStatus,_unresolved,...clean}=r;return clean;});
+  const BATCH=200;let done=0;let errors=0;
+  for(let i=0;i<payload.length;i+=BATCH){
+    const chunk=payload.slice(i,i+BATCH);
+    const{error}=await sb.from('tickets').upsert(chunk,{onConflict:'tt_number,ticket_date',ignoreDuplicates:false});
+    if(error){errors++;console.error('Batch error:',error);}
+    done+=chunk.length;toast(`Importing… ${done}/${payload.length}`);
+  }
+  if(errors){toast(`Import done with ${errors} batch error(s)`,1);}
+  else{toast(`✓ ${payload.length} tickets imported successfully`);}
+  btn.disabled=false;btn.textContent='Import '+payload.length+' tickets';
+  setTimeout(()=>{hpsmRows=[];renderTab('hpsm_import');},1500);
+}
+
 async function rBackup(){
   const mc=document.getElementById('mc');
   mc.innerHTML=`
