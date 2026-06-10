@@ -335,12 +335,16 @@ function tabs_fn(){
     guest:[],
     noc:[
       {id:'reports',l:'Reports'},
+      {id:'hpsm_import',l:'HPSM Import'},
+      {id:'kpi',l:'KPI Report'},
       {id:'cleaner',l:'Site ID Cleaner'},
       {id:'bulk',l:'Bulk Update'},
       {id:'profile',l:'My Account'},
     ],
     management:[
       {id:'reports',l:'Reports'},
+      {id:'hpsm_import',l:'HPSM Import'},
+      {id:'kpi',l:'KPI Report'},
       {id:'cleaner',l:'Site ID Cleaner'},
       {id:'bulk',l:'Bulk Update'},
       {id:'profile',l:'My Account'},
@@ -508,7 +512,7 @@ async function rDash(){
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
       <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${priBadge}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}${urg?' <span style="font-size:9px;background:var(--pri);color:#fff;padding:1px 4px;border-radius:3px;font-weight:500">!</span>':''}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}" title="${repCnt>1?'Click to see all tickets for this site':''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.rf={q:'${t.site_id_canonical}',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:''};S.rsort={col:'ticket_date',dir:'desc'};S.rpage=1;renderTab('reports')`:''}" title="${repCnt>1?'Click to see repeated tickets for this site+issue':''}">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
       <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
     </tr>`;
@@ -696,7 +700,24 @@ async function rReports(){
   const f=S.rf;const srt=S.rsort;
   const PP=50;
 
-  // Build query
+  // Get repeat counts (needed for display and filtering)
+  const{data:repData}=await sb.rpc('get_site_issue_repeat_counts');
+  const repMap={};
+  (repData||[]).forEach(r=>{
+    if(r.site_id_canonical&&r.tt_issue)repMap[r.site_id_canonical+'||'+r.tt_issue]=parseInt(r.ticket_count)||1;
+  });
+
+  // Build repeat filter keys and qualifying sites for server-side pre-filter
+  let repeatKeys=null;
+  let repeatSites=null;
+  if(f.repeat_min){
+    const minCnt=parseInt(f.repeat_min);
+    const qualifying=(repData||[]).filter(r=>parseInt(r.ticket_count)>=minCnt);
+    repeatKeys=new Set(qualifying.map(r=>r.site_id_canonical+'||'+r.tt_issue));
+    repeatSites=[...new Set(qualifying.map(r=>r.site_id_canonical))];
+  }
+
+  // Build Supabase query
   let q=sb.from('tickets').select('*',{count:'exact'});
   if(f.q)q=q.or(`tt_number.ilike.%${f.q}%,site_id_canonical.ilike.%${f.q}%,tt_issue.ilike.%${f.q}%,bo_team.ilike.%${f.q}%`);
   if(f.status)q=q.eq('status',f.status);
@@ -706,19 +727,12 @@ async function rReports(){
   else if(f.priority)q=q.eq('priority',parseInt(f.priority));
   if(f.date_from)q=q.gte('ticket_date',f.date_from);
   if(f.date_to)q=q.lte('ticket_date',f.date_to);
-
-  // Repeat filter — fetch repeat counts first, then filter
-  let repeatKeys=null;
-  if(f.repeat_min){
-    const{data:repData}=await sb.rpc('get_site_issue_repeat_counts');
-    const minCnt=parseInt(f.repeat_min);
-    repeatKeys=new Set((repData||[]).filter(r=>parseInt(r.ticket_count)>=minCnt).map(r=>r.site_id_canonical+'||'+r.tt_issue));
-  }
+  if(repeatSites&&repeatSites.length)q=q.in('site_id_canonical',repeatSites);
 
   const fr=(S.rpage-1)*PP,to=fr+PP-1;
   const{data,count}=await q.order(srt.col,{ascending:srt.dir==='asc'}).range(fr,to);
 
-  // Apply repeat filter client-side (can't do it server-side without RPC change)
+  // Final client-side filter: exact site+issue match
   let rows=(data||[]);
   if(repeatKeys){
     rows=rows.filter(r=>{
@@ -726,13 +740,6 @@ async function rReports(){
       return k&&repeatKeys.has(k);
     });
   }
-
-  // Get repeat counts for display
-  const{data:repAll}=await sb.rpc('get_site_issue_repeat_counts');
-  const repMap={};
-  (repAll||[]).forEach(r=>{
-    if(r.site_id_canonical&&r.tt_issue)repMap[r.site_id_canonical+'||'+r.tt_issue]=parseInt(r.ticket_count)||1;
-  });
 
   const cols=[
     {id:'tt_number',l:'TT Number',w:'105px'},
@@ -1399,7 +1406,7 @@ async function rStaff(){
   else if(usRes&&usRes.error){console.warn('users rpc error:',usRes.error);}
   const mc=document.getElementById('mc');
   mc.innerHTML=`
-  <div style="max-width:760px">
+  <div style="max-width:960px">
 
     <!-- Add Portal User -->
     <div class="card" style="margin-bottom:12px">
@@ -1516,12 +1523,16 @@ async function togSt(id,cur){await sb.from('staff').update({is_active:!cur}).eq(
 const TAB_PERM_DEFS={
   noc:[
     {id:'reports',l:'Reports'},
+    {id:'hpsm_import',l:'HPSM Import'},
+    {id:'kpi',l:'KPI Report'},
     {id:'cleaner',l:'Site ID Cleaner'},
     {id:'bulk',l:'Bulk Update'},
     {id:'profile',l:'My Account'},
   ],
   management:[
     {id:'reports',l:'Reports'},
+    {id:'hpsm_import',l:'HPSM Import'},
+    {id:'kpi',l:'KPI Report'},
     {id:'cleaner',l:'Site ID Cleaner'},
     {id:'bulk',l:'Bulk Update'},
     {id:'profile',l:'My Account'},
@@ -2256,7 +2267,7 @@ async function refreshLiveFeed(){
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:0.5px solid var(--border)" title="${t.tt_issue||''}">${t.tt_issue||'—'}</td>
       <td style="padding:8px 10px;white-space:nowrap;border-bottom:0.5px solid var(--border)">${pb}${t.site_class?cbadge(t.site_class):'<span style="color:var(--text3)">—</span>'}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${t.ticket_date||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.tf.q='${t.site_id_canonical}';S.tf.status='';S.tf.region='';S.tf.sclass='';S.tpage=1;renderTab('tickets')`:''}">${repCnt>1?repCnt+'×':'—'}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:${repCnt>1?'var(--amber)':'var(--text3)'};text-align:center;white-space:nowrap;border-bottom:0.5px solid var(--border);cursor:${repCnt>1?'pointer':'default'}" onclick="event.stopPropagation();${repCnt>1?`S.rf={q:'${t.site_id_canonical}',status:'',region:'',sclass:'',priority:'',repeat_min:'',date_from:'',date_to:''};S.rsort={col:'ticket_date',dir:'desc'};S.rpage=1;renderTab('reports')`:''}">${repCnt>1?repCnt+'×':'—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:var(--text2);white-space:nowrap;border-bottom:0.5px solid var(--border)">${siteLastSeen[t.site_id_canonical]||'—'}</td>
       <td style="padding:8px 10px;border-bottom:0.5px solid var(--border)" onclick="event.stopPropagation()">${canEdit&&t.id?`<button class="btn bsm" onclick="editTicket('${t.id}')" style="padding:2px 7px;font-size:10px">Edit</button>`:''}</td>
     </tr>`;
